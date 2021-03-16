@@ -30,7 +30,8 @@ def add_ml_stats_row(df_ml_stats, df):
     ml_row = {'p_start': df_min.p, 'p_end': df_max.p, 'ct': df_mean.ct, 'sa': df_mean.sa, 'sigma1': df_mean.sigma1,
               'p': df_mean.p, 'ct_range': df_max.ct - df_min.ct, 'sa_range': df_max.sa - df_min.sa,
               'sigma1_range': df_max.sigma1 - df_min.sigma1,
-              'height': None, 'turner_ang': df_mean.turner_ang, 'stability_ratio': df_mean.stability_ratio}
+              'pressure_extent': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
+              'stability_ratio': df_mean.stability_ratio}
     df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
     return df_ml_stats
 
@@ -61,11 +62,13 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_smooth_input = df_input.rolling(window=av_window, center=True).mean()
     df_smooth_input['alpha'] = gsw.alpha(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
     df_smooth_input['beta'] = gsw.beta(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
-    df_smooth = df_smooth_input.rolling(window=av_window, center=True).mean()
-    df_smooth = df_smooth.reindex()
-    df = df_input.rolling(window=2, center=True).mean()[1:]
-    df['turner_ang'], df['stability_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p, axis=0)
-    df = df.reindex()
+    # df_smooth = df_smooth.reindex()
+    df_smooth_midpoints = df_smooth_input.rolling(window=2, center=True).mean()[1:]
+    df = df_input.iloc[1:-1].reindex()
+    df_smooth = df_smooth_input.iloc[1:-1].reindex()
+    df['turner_ang'], df['stability_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_midpoints.sa,
+                                                                               df_smooth_midpoints.ct,
+                                                                               df_smooth_midpoints.p, axis=0)
     # Take the center diff of the dataframe wrt pressure
     df_diff = center_diff_df(df)
     pressure_step = df_diff.p.mean()
@@ -86,39 +89,41 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     # Combine logical masks for a mask that is False for mixed layer detected in temp, salt or density
     df['mixed_layer_mask'] = df.mixed_layer_temp_mask & df.mixed_layer_sal_mask & df.mixed_layer_sigma_mask
 
-    # TODO Measure extent of mixed layers and exclude those that exceed the max density difference
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
     df_ml_stats = pd.DataFrame(
-        columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range', 'height',
+        columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range',
+                 'pressure_extent',
                  'turner_ang', 'stability_ratio'])
     # Loop through rows of mixed layer points, identifying individual layers
     start_index = df_ml.index[0]
     prev_index = df_ml.index[0]
     continuous_ml = False
-    singletons = 1
     for i, row in df_ml.iloc[1:].iterrows():
         if i == prev_index + 1:
             if not continuous_ml:
                 # Current row is adjacent to previous row: start of continuous mixed layer
                 start_index = prev_index
                 continuous_ml = True
-                singletons = 0
         else:
-            if singletons == 0:
-                # End of continuous mixed layer
-                print('mixed layer from ' + str(start_index) + ' to ' + str(prev_index))
-                df_mixed_layer = df[start_index:prev_index + 1]
-                print(df_mixed_layer)
+            if continuous_ml:
+                # End of continuous mixed layer, add to table
+                df_mixed_layer = df_ml.loc[start_index:prev_index]
                 df_ml_stats = add_ml_stats_row(df_ml_stats, df_mixed_layer)
-            elif singletons > 1:
-                # Single sample mixed layer
-                print('single layer at ' + str(prev_index))
-            singletons += 1
+            else:
+                # Single sample mixed layer, add to table
+                df_mixed_layer = df_ml.loc[prev_index]
+                ml_row = {'p_start': df_mixed_layer.p, 'p_end': df_mixed_layer.p, 'ct': df_mixed_layer.ct,
+                          'sa': df_mixed_layer.sa, 'sigma1': df_mixed_layer.sigma1, 'p': df_mixed_layer.p,
+                          'ct_range': 0, 'sa_range': 0, 'sigma1_range': 0, 'pressure_extent': pressure_step,
+                          'turner_ang': df_mixed_layer.turner_ang, 'stability_ratio': df_mixed_layer.stability_ratio}
+                df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
             continuous_ml = False
         prev_index = i
-    print(df_ml_stats)
+
+    # Drop mixed layers with density difference exceeding ml_density_difference
+    df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
     """
     Step 2 Assess interface layers (if) between ml
     """
