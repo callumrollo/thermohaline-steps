@@ -23,7 +23,7 @@ def center_diff_df(df):
     return (df.diff() - df.diff(periods=-1)) / 2
 
 
-def add_ml_stats_row(df_ml_stats, df):
+def add_ml_stats_row(stats_df, df):
     df_min = df.min()
     df_max = df.max()
     df_mean = df.mean()
@@ -32,15 +32,15 @@ def add_ml_stats_row(df_ml_stats, df):
               'sigma1_range': df_max.sigma1 - df_min.sigma1,
               'pressure_extent': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
               'stability_ratio': df_mean.stability_ratio}
-    df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
-    return df_ml_stats
+    stats_df = stats_df.append(ml_row, ignore_index=True)
+    return stats_df
 
 
 def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, height_ratio=30):
     """
     all data should be at 1 dbar resolution (for now)
     Notes:
-    - Currently working on data at steps between input (for Turner angle)
+    - Currently dropping min and max pressure values, so can have Turner angle at all points
     - Turner angle and stability-ratio from smoothed profile
     :param p: pressure (dbar)
     :param ct: conservative temperature (degrees celsius)
@@ -122,16 +122,33 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
             continuous_ml = False
         prev_index = i
 
-    # Drop mixed layers with density difference exceeding ml_density_difference
+    # Drop mixed layers with density difference exceeding ml_density_difference TODO better value here
     df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
     """
-    Step 2 Assess interface layers (if) between ml
+    Step 2 Assess gradient layers  between mixed layers
     """
-    # Step 3 measure height of if and their properties
+    df_gl_stats = pd.DataFrame(columns=df_ml_stats.columns)
+    prev_row = df_ml_stats.iloc[0]
+    for i, row in df_ml_stats.iloc[1:].iterrows():
+        gl_rows = df[(df.p >= prev_row.p_end) & (df.p <= row.p_start)]
+        df_gl_stats = add_ml_stats_row(df_gl_stats, gl_rows)
+        prev_row = row
+    print('done')
+
+    # Step 3 measure height of interface and their properties
     # Step 4 Classify layers in the double diffusive regime as salt finger (sf) or diffusive convection (dc)
     # Step 5 Identify sequences of steps
 
     # temporary tests of functionality
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot(df.ct, df.p, color='gray', alpha=0.5)
+    for i, row in df_ml_stats.iterrows():
+        ax.plot([row.ct, row.ct], [row.p_start, row.p_end], color='C0')
+    #for i, row in df_gl_stats.iterrows():
+    #    ax.plot([row.ct, row.ct], [row.p_start, row.p_end], color='C1')
+
+    plt.show()
 
     return df_diff
 
