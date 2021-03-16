@@ -16,15 +16,31 @@ def main():
     df = pd.read_csv(
         '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/glider_staircase_sample.csv')
     output = classify_staircase(df.pressure_1db, df.cons_temp, df.abs_salinity)
+    print('done')
 
 
 def center_diff_df(df):
     return (df.diff() - df.diff(periods=-1)) / 2
 
 
+def add_ml_stats_row(df_ml_stats, df):
+    df_min = df.min()
+    df_max = df.max()
+    df_mean = df.mean()
+    ml_row = {'p_start': df_min.p, 'p_end': df_max.p, 'ct': df_mean.ct, 'sa': df_mean.sa, 'sigma1': df_mean.sigma1,
+              'p': df_mean.p, 'ct_range': df_max.ct - df_min.ct, 'sa_range': df_max.sa - df_min.sa,
+              'sigma1_range': df_max.sigma1 - df_min.sigma1,
+              'height': None, 'turner_ang': df_mean.turner_ang, 'stability_ratio': df_mean.stability_ratio}
+    df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
+    return df_ml_stats
+
+
 def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, height_ratio=30):
     """
     all data should be at 1 dbar resolution (for now)
+    Notes:
+    - Currently working on data at steps between input (for Turner angle)
+    - Turner angle and stability-ratio from smoothed profile
     :param p: pressure (dbar)
     :param ct: conservative temperature (degrees celsius)
     :param sa: absolute salinity (g kg-1)
@@ -36,20 +52,23 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     """
     # TODO import test: are data evenly sampled in pressure?
     # Step 0: Prepare data. Using a pandas dataframe to keep neat
-    df = pd.DataFrame(data={'p': p, 'ct': ct, 'sa': sa})
-    df['sigma1'] = gsw.sigma1(df.sa, df.ct)
+    df_input = pd.DataFrame(data={'p': p, 'ct': ct, 'sa': sa})
+    df_input['sigma1'] = gsw.sigma1(df_input.sa, df_input.ct)
     # Interpolate linearly over nans in input data
-    df = df.interpolate(method='linear')
+    df_input = df_input.interpolate(method='linear')
+
+    # Take rolling average of the dataframe, using av_window
+    df_smooth_input = df_input.rolling(window=av_window, center=True).mean()
+    df_smooth_input['alpha'] = gsw.alpha(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
+    df_smooth_input['beta'] = gsw.beta(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
+    df_smooth = df_smooth_input.rolling(window=av_window, center=True).mean()
+    df_smooth = df_smooth.reindex()
+    df = df_input.rolling(window=2, center=True).mean()[1:]
+    df['turner_ang'], df['stability_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p, axis=0)
+    df = df.reindex()
     # Take the center diff of the dataframe wrt pressure
     df_diff = center_diff_df(df)
     pressure_step = df_diff.p.mean()
-    # Take rolling average of the dataframe, using av_window
-    df_smooth = df.rolling(window=av_window, center=True).mean()
-    df_smooth['alpha'] = gsw.alpha(df_smooth.sa, df_smooth.ct, df_smooth.p)
-    df_smooth['beta'] = gsw.beta(df_smooth.sa, df_smooth.ct, df_smooth.p)
-    df_center = df.rolling(window=2, center=True).mean()[1:]
-    df_center['turner_ang'], df_center['stability_ratio'], __ = gsw.stability.Turner_Rsubrho(df.sa, df.ct, df.p, axis=0)
-
     """
     Following the 5 steps described in https://essd.copernicus.org/articles/13/43/2021/
     """
@@ -72,8 +91,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_ml = df[~df.mixed_layer_mask]
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
     df_ml_stats = pd.DataFrame(
-        columns=['ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range', 'height', 'turner_ang',
-                 'density_ratio'])
+        columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range', 'height',
+                 'turner_ang', 'stability_ratio'])
     # Loop through rows of mixed layer points, identifying individual layers
     start_index = df_ml.index[0]
     prev_index = df_ml.index[0]
@@ -82,19 +101,24 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     for i, row in df_ml.iloc[1:].iterrows():
         if i == prev_index + 1:
             if not continuous_ml:
-                # Current row is adjacent to previous row: continuous mixed layer
+                # Current row is adjacent to previous row: start of continuous mixed layer
                 start_index = prev_index
                 continuous_ml = True
                 singletons = 0
         else:
             if singletons == 0:
+                # End of continuous mixed layer
                 print('mixed layer from ' + str(start_index) + ' to ' + str(prev_index))
+                df_mixed_layer = df[start_index:prev_index + 1]
+                print(df_mixed_layer)
+                df_ml_stats = add_ml_stats_row(df_ml_stats, df_mixed_layer)
             elif singletons > 1:
+                # Single sample mixed layer
                 print('single layer at ' + str(prev_index))
             singletons += 1
             continuous_ml = False
         prev_index = i
-
+    print(df_ml_stats)
     """
     Step 2 Assess interface layers (if) between ml
     """
