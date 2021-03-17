@@ -48,7 +48,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     :param ml_grad: density gradient for detection of mixed layer (kg m^-3 dbar^-1), default: 0.0005
     :param ml_density_difference: maximum density gradient difference of mixed layer (kg m^-3), default: 0.005
     :param av_window: averaging window to obtain background profiles (dbar), default: 200
-    :param height_ratio: ratio between mixed layer height and gradient layer height, default: 30
+    :param interface_max_height: Maximum allowed height of interfaces between mixed layers (dbar), default: 30
     :return:
     """
     # TODO import test: are data evenly sampled in pressure?
@@ -160,22 +160,45 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     for i, ml_row in df_ml_stats[1:].iterrows():
         if (prev_ml_row.ct - ml_row.ct) / (prev_ml_row.p - ml_row.p) < 0 \
                 and (prev_ml_row.sa - ml_row.sa) / (prev_ml_row.p - ml_row.p) < 0:
-            df_gl_stats.loc[i-1, 'salt_finger'] = True
+            df_gl_stats.loc[i - 1, 'salt_finger'] = True
         if (prev_ml_row.ct - ml_row.ct) / (prev_ml_row.p - ml_row.p) > 0 \
                 and (prev_ml_row.sa - ml_row.sa) / (prev_ml_row.p - ml_row.p) > 0:
-            df_gl_stats.loc[i-1, 'diffusive_convection'] = True
+            df_gl_stats.loc[i - 1, 'diffusive_convection'] = True
 
-    # Step 5 Identify sequences of steps
+    """
+    Step 5 Identify sequences of steps. A step is defined as a mixed layer bounded by two interfaces of matching double
+    diffusive regime. This excludes most thermohaline intrusions
+    """
+    df_ml_stats['salt_finger_step'] = False
+    df_ml_stats['diffusive_convection_step'] = False
 
+    df_gl_stats['salt_finger_step'] = False
+    df_gl_stats['diffusive_convection_step'] = False
+
+    for i, ml_row in df_ml_stats[1:-1].iterrows():
+        prev_gl_row = df_gl_stats.loc[i - 1]
+        next_gl_row = df_gl_stats.loc[i]
+        if prev_gl_row.salt_finger & next_gl_row.salt_finger:
+            df_ml_stats.loc[i, 'salt_finger_step'] = True
+            df_gl_stats.loc[i - 1:i, 'salt_finger_step'] = True
+        if prev_gl_row.diffusive_convection & next_gl_row.diffusive_convection:
+            df_ml_stats.loc[i, 'diffusive_convection_step'] = True
+            df_gl_stats.loc[i - 1:i, 'diffusive_convection_step'] = True
+
+    # Drop interfaces with turner angles that do not match their double diffusive regime
+    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > 90) & (df_gl_stats['salt_finger'])), :]
+    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < 45) & (df_gl_stats['salt_finger'])), :]
+    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > -45) & (df_gl_stats['diffusive_convection'])), :]
+    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), :]
     # temporary tests of functionality
 
-    # Create masks of mixed layers and gradient layers
+    # Create masks of mixed layers and gradient layers at the levels of the input data
     df['mixed_layer_final_mask'] = True
-    for i, row in df_ml_stats.iterrows():
+    for i, row in df_ml_stats[df_ml_stats['salt_finger_step']].iterrows():
         df.loc[row.p_start:row.p_end, 'mixed_layer_final_mask'] = False
 
     df['gradient_layer_final_mask'] = True
-    for i, row in df_gl_stats.iterrows():
+    for i, row in df_gl_stats[df_gl_stats['salt_finger_step']].iterrows():
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
 
     import matplotlib.pyplot as plt
@@ -193,7 +216,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
 
     plt.show()
 
-    return df_diff
+    return df
 
 
 if __name__ == '__main__':
