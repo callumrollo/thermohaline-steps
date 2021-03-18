@@ -51,7 +51,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     :param interface_max_height: Maximum allowed height of interfaces between mixed layers (dbar), default: 30
     :return:
     """
-    # TODO import test: are data evenly sampled in pressure?
+    # TODO import test: are data evenly sampled in pressure? Are the monotonically increasing?
     """
     Step 0: Prepare data. Using pandas dataframes to keep neat
     """
@@ -71,6 +71,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     df['turner_ang'], df['stability_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_midpoints.sa,
                                                                                df_smooth_midpoints.ct,
                                                                                df_smooth_midpoints.p, axis=0)
+    # Create masks of mixed layers and gradient layers at the levels of the input data
+    df['mixed_layer_final_mask'] = True
     # Take the center diff of the dataframe wrt pressure
     df_diff = center_diff_df(df)
     pressure_step = df_diff.p.mean()
@@ -90,9 +92,14 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     df.loc[np.abs(df_diff.sigma1) < ml_grad, 'mixed_layer_sigma_mask'] = False
     # Combine logical masks for a mask. Mixed layers must satisfy criteria for temperature, salinity and density
     df['mixed_layer_mask'] = df.mixed_layer_temp_mask | df.mixed_layer_sal_mask | df.mixed_layer_sigma_mask
+    df['gradient_layer_final_mask'] = True
 
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
+
+    # If 1 mixed layer or less, bail out
+    if len(df_ml) < 2:
+        return df
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
     df_ml_stats = pd.DataFrame(
         columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range',
@@ -126,6 +133,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
 
     # Drop mixed layers with density difference exceeding ml_density_difference TODO better value here
     df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
+    df_ml_stats = df_ml_stats.reset_index()
     """
     Step 2  Assess gradient/interface layers between mixed layers and calculate their properties
     """
@@ -134,7 +142,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     prev_row = df_ml_stats.iloc[0]
     # Loop through mixed layer stats. All layers between mixed layers initially classified as gradient layers
     for i, row in df_ml_stats.iloc[1:].iterrows():
-        gl_rows = df[(df.p >= prev_row.p_end) & (df.p <= row.p_start)]
+        gl_rows = df[(df.p > prev_row.p_end) & (df.p < row.p_start)]
         df_gl_stats = add_ml_stats_row(df_gl_stats, gl_rows)
         prev_row = row
 
@@ -145,8 +153,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     df_gl_stats['adj_ml_height'] = np.maximum.reduce(
         [df_ml_stats.iloc[1:].pressure_extent.values, df_ml_stats.iloc[:-1].pressure_extent.values])
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.pressure_extent
-    df_gl_stats[df_gl_stats.pressure_extent > df_gl_stats.adj_ml_height] = np.nan
-    df_gl_stats[df_gl_stats.pressure_extent > interface_max_height] = np.nan
+    df_gl_stats.loc[df_gl_stats.pressure_extent > df_gl_stats.adj_ml_height, 'p_start'] = np.nan
+    df_gl_stats.loc[df_gl_stats.pressure_extent > interface_max_height, 'p_start'] = np.nan
 
     # TODO remove interfaces with temp or salinity inversions
     # TODO Exclude mixed layers with greater variability in temperature, salinity or density than adjacent gradient layers
@@ -157,7 +165,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     df_gl_stats['salt_finger'] = False
     df_gl_stats['diffusive_convection'] = False
     prev_ml_row = df_ml_stats.iloc[0]
-    for i, ml_row in df_ml_stats[1:].iterrows():
+    for i, ml_row in df_ml_stats[1:-1].iterrows():
         if (prev_ml_row.ct - ml_row.ct) / (prev_ml_row.p - ml_row.p) < 0 \
                 and (prev_ml_row.sa - ml_row.sa) / (prev_ml_row.p - ml_row.p) < 0:
             df_gl_stats.loc[i - 1, 'salt_finger'] = True
@@ -192,29 +200,12 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), :]
     # temporary tests of functionality
 
-    # Create masks of mixed layers and gradient layers at the levels of the input data
-    df['mixed_layer_final_mask'] = True
+    # Populate masks of mixed and gradient layers before returning dataframe
     for i, row in df_ml_stats[df_ml_stats['salt_finger_step']].iterrows():
         df.loc[row.p_start:row.p_end, 'mixed_layer_final_mask'] = False
 
-    df['gradient_layer_final_mask'] = True
     for i, row in df_gl_stats[df_gl_stats['salt_finger_step']].iterrows():
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
-
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    ax.plot(df.ct, df.p, color='gray', alpha=0.5)
-    # np.ma.array(ct[i, :] + 1.1 * align - 3, mask=ml_sf.mask[i, :])
-    ax.plot(np.ma.array(df.ct, mask=df['mixed_layer_final_mask']), np.ma.array(df.p, mask=df['mixed_layer_final_mask']),
-            color='C0')
-    ax.plot(np.ma.array(df.ct, mask=df['gradient_layer_final_mask']),
-            np.ma.array(df.p, mask=df['gradient_layer_final_mask']), color='C1')
-    # for i, row in df_ml_stats.iterrows():
-    #    ax.plot([row.ct, row.ct], [row.p_start, row.p_end], color='C0')
-    # for i, row in df_gl_stats.iterrows():
-    #    ax.plot([row.ct, row.ct], [row.p_start, row.p_end], color='C1')
-
-    plt.show()
 
     return df
 
