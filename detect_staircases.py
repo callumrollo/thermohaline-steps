@@ -83,7 +83,6 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     """
     Step 1 Detect extent of subsurface mixed layers (ml)
     """
-
     df['mixed_layer_temp_mask'] = True
     df.loc[np.abs(df_smooth.alpha * df_diff.ct * 1028) < ml_grad, 'mixed_layer_temp_mask'] = False
     df['mixed_layer_sal_mask'] = True
@@ -207,7 +206,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     for i, row in df_gl_stats[df_gl_stats['salt_finger_step']].iterrows():
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
 
-    return df
+    return df, df_ml_stats, df_gl_stats
 
 
 if __name__ == '__main__':
