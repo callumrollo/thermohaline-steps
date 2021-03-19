@@ -135,7 +135,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
             continuous_ml = False
         prev_index = i
 
-    # Drop mixed layers with density difference exceeding ml_density_difference TODO better value here
+    # Drop mixed layers with density difference exceeding ml_density_difference
     df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
     df_ml_stats = df_ml_stats.reset_index()
     """
@@ -202,7 +202,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < 45) & (df_gl_stats['salt_finger'])), :]
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > -45) & (df_gl_stats['diffusive_convection'])), :]
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), :]
-    # temporary tests of functionality
+
+    # Drop interfaces that do not pass height criteria
+    df_gl_stats = df_gl_stats.loc[~(df_gl_stats.layer_height > df_gl_stats.adj_ml_height), :]
+    df_gl_stats = df_gl_stats.loc[~(df_gl_stats.layer_height > interface_max_height), :]
 
     # Populate masks of mixed and gradient layers before returning dataframe
     for i, row in df_ml_stats[df_ml_stats['salt_finger_step']].iterrows():
