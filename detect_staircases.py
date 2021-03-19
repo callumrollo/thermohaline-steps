@@ -12,13 +12,6 @@ import pandas as pd
 import numpy as np
 
 
-def main():
-    df = pd.read_csv(
-        '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/glider_staircase_sample.csv')
-    output = classify_staircase(df.pressure_1db, df.cons_temp, df.abs_salinity)
-    print('done')
-
-
 def center_diff_df(df):
     return (df.diff() - df.diff(periods=-1)) / 2
 
@@ -98,7 +91,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
 
     # If 1 mixed layer or less, bail out
     if len(df_ml) < 2:
-        return df
+        return df, None, None
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
     df_ml_stats = pd.DataFrame(
         columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range',
@@ -207,7 +200,3 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
 
     return df, df_ml_stats, df_gl_stats
-
-
-if __name__ == '__main__':
-    main()
