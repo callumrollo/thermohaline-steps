@@ -12,13 +12,14 @@ import pandas as pd
 import numpy as np
 
 
-def center_diff_df(df):
+def center_diff_df(df, pressure_step):
     """
     Performs central difference on a data frame. First and last rows are lost in this procedure
     :param df: Dataframe of evenly spaced observations
+    :param pressure_step: Pressure difference between beach row in df
     :return: Central difference of each row from its neighbours
     """
-    return (df.diff() - df.diff(periods=-1)) / 2
+    return (df.diff() - df.diff(periods=-1)) / (2*pressure_step)
 
 
 def add_layer_stats_row(stats_df, df_layer):
@@ -78,8 +79,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     # Create masks of mixed layers and gradient layers at the levels of the input data
     df['mixed_layer_final_mask'] = True
     # Take the center diff of the dataframe wrt pressure
-    df_diff = center_diff_df(df)
-    pressure_step = df_diff.p.mean()
+    pressure_step = df.iloc[1].p - df.iloc[0].p
+    df_diff = center_diff_df(df, pressure_step)
     """
     Following the 5 steps described in https://essd.copernicus.org/articles/13/43/2021/
     """
