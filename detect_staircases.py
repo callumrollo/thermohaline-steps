@@ -13,23 +13,34 @@ import numpy as np
 
 
 def center_diff_df(df):
+    """
+    Performs central difference on a data frame. First and last rows are lost in this procedure
+    :param df: Dataframe of evenly spaced observations
+    :return: Central difference of each row from its neighbours
+    """
     return (df.diff() - df.diff(periods=-1)) / 2
 
 
-def add_ml_stats_row(stats_df, df):
-    df_min = df.min()
-    df_max = df.max()
-    df_mean = df.mean()
+def add_layer_stats_row(stats_df, df_layer):
+    """
+    Adds a row of stats from a layer to a dataframe of stats
+    :param stats_df: Dataframe with one row per layer
+    :param df_layer: Dataframe of observations within a single identified layer
+    :return: stats_df with a new row made from the contents of df_layer
+    """
+    df_min = df_layer.min()
+    df_max = df_layer.max()
+    df_mean = df_layer.mean()
     ml_row = {'p_start': df_min.p, 'p_end': df_max.p, 'ct': df_mean.ct, 'sa': df_mean.sa, 'sigma1': df_mean.sigma1,
               'p': df_mean.p, 'ct_range': df_max.ct - df_min.ct, 'sa_range': df_max.sa - df_min.sa,
               'sigma1_range': df_max.sigma1 - df_min.sigma1,
-              'pressure_extent': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
+              'layer_height': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
               'stability_ratio': df_mean.stability_ratio}
     stats_df = stats_df.append(ml_row, ignore_index=True)
     return stats_df
 
 
-def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_window=200, interface_max_height=30):
+def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30):
     """
     all data should be at 1 dbar resolution (for now)
     Notes:
@@ -95,7 +106,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
     df_ml_stats = pd.DataFrame(
         columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range',
-                 'pressure_extent',
+                 'layer_height',
                  'turner_ang', 'stability_ratio'])
     # Loop through rows of mixed layer points, identifying individual layers
     start_index = df_ml.index[0]
@@ -111,13 +122,13 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
             if continuous_ml:
                 # End of continuous mixed layer, add to table
                 df_mixed_layer = df_ml.loc[start_index:prev_index]
-                df_ml_stats = add_ml_stats_row(df_ml_stats, df_mixed_layer)
+                df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
             else:
                 # Single sample mixed layer, add to table
                 df_mixed_layer = df_ml.loc[prev_index]
                 ml_row = {'p_start': df_mixed_layer.p, 'p_end': df_mixed_layer.p, 'ct': df_mixed_layer.ct,
                           'sa': df_mixed_layer.sa, 'sigma1': df_mixed_layer.sigma1, 'p': df_mixed_layer.p,
-                          'ct_range': 0, 'sa_range': 0, 'sigma1_range': 0, 'pressure_extent': pressure_step,
+                          'ct_range': 0, 'sa_range': 0, 'sigma1_range': 0, 'layer_height': pressure_step,
                           'turner_ang': df_mixed_layer.turner_ang, 'stability_ratio': df_mixed_layer.stability_ratio}
                 df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
             continuous_ml = False
@@ -135,7 +146,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     # Loop through mixed layer stats. All layers between mixed layers initially classified as gradient layers
     for i, row in df_ml_stats.iloc[1:].iterrows():
         gl_rows = df[(df.p > prev_row.p_end) & (df.p < row.p_start)]
-        df_gl_stats = add_ml_stats_row(df_gl_stats, gl_rows)
+        df_gl_stats = add_layer_stats_row(df_gl_stats, gl_rows)
         prev_row = row
 
     """
@@ -143,10 +154,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.005, ml_density_difference=0.05, av_
     """
     # Exclude gradient layers that are thicker than the max height, or thicker than adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.maximum.reduce(
-        [df_ml_stats.iloc[1:].pressure_extent.values, df_ml_stats.iloc[:-1].pressure_extent.values])
-    df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.pressure_extent
-    df_gl_stats.loc[df_gl_stats.pressure_extent > df_gl_stats.adj_ml_height, 'p_start'] = np.nan
-    df_gl_stats.loc[df_gl_stats.pressure_extent > interface_max_height, 'p_start'] = np.nan
+        [df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values])
+    df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height
+    df_gl_stats.loc[df_gl_stats.layer_height > df_gl_stats.adj_ml_height, 'p_start'] = np.nan
+    df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'p_start'] = np.nan
 
     # TODO remove interfaces with temp or salinity inversions
     # TODO Exclude mixed layers with greater variability in temperature, salinity or density than adjacent gradient layers
