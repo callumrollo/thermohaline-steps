@@ -145,6 +145,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     """
     # Create empty dataframe with same columns and df_ml_stats
     df_gl_stats = pd.DataFrame(columns=df_ml_stats.columns)
+    if len(df_ml_stats) < 2:
+        return df, df_ml_stats, df_gl_stats
     prev_row = df_ml_stats.iloc[0]
     # Loop through mixed layer stats. All layers between mixed layers initially classified as gradient layers
     for i, row in df_ml_stats.iloc[1:].iterrows():
