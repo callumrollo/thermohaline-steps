@@ -36,7 +36,7 @@ def add_layer_stats_row(stats_df, df_layer):
               'p': df_mean.p, 'ct_range': df_max.ct - df_min.ct, 'sa_range': df_max.sa - df_min.sa,
               'sigma1_range': df_max.sigma1 - df_min.sigma1,
               'layer_height': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
-              'stability_ratio': df_mean.stability_ratio}
+              'density_ratio': df_mean.density_ratio}
     stats_df = stats_df.append(ml_row, ignore_index=True)
     return stats_df
 
@@ -70,10 +70,12 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_smooth_input['alpha'] = gsw.alpha(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
     df_smooth_input['beta'] = gsw.beta(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
     # df_smooth = df_smooth.reindex()
-    df_smooth_midpoints = df_smooth_input.rolling(window=2, center=True).mean()[1:]
+    # Turner angle calculated from a 50 m smoothing, following van der Boog 21
+    df_smooth_turner = df_input.rolling(window=50, center=True).mean()
+    df_smooth_midpoints = df_smooth_turner.rolling(window=2, center=True).mean()[1:]
     df = df_input.iloc[1:-1].reindex()
     df_smooth = df_smooth_input.iloc[1:-1].reindex()
-    df['turner_ang'], df['stability_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_midpoints.sa,
+    df['turner_ang'], df['density_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_midpoints.sa,
                                                                                df_smooth_midpoints.ct,
                                                                                df_smooth_midpoints.p, axis=0)
     # Create masks of mixed layers and gradient layers at the levels of the input data
@@ -108,7 +110,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_ml_stats = pd.DataFrame(
         columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range',
                  'layer_height',
-                 'turner_ang', 'stability_ratio'])
+                 'turner_ang', 'density_ratio'])
     # Loop through rows of mixed layer points, identifying individual layers
     start_index = df_ml.index[0]
     prev_index = df_ml.index[0]
@@ -130,7 +132,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
                 ml_row = {'p_start': df_mixed_layer.p, 'p_end': df_mixed_layer.p, 'ct': df_mixed_layer.ct,
                           'sa': df_mixed_layer.sa, 'sigma1': df_mixed_layer.sigma1, 'p': df_mixed_layer.p,
                           'ct_range': 0, 'sa_range': 0, 'sigma1_range': 0, 'layer_height': pressure_step,
-                          'turner_ang': df_mixed_layer.turner_ang, 'stability_ratio': df_mixed_layer.stability_ratio}
+                          'turner_ang': df_mixed_layer.turner_ang, 'density_ratio': df_mixed_layer.density_ratio}
                 df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
             continuous_ml = False
         prev_index = i
