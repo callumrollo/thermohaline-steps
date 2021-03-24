@@ -140,5 +140,5 @@ cython_debug/
 # Custom ignores
 *.csv
 figures/
-plot_staircase.ipynb
+*.ipynb
 
