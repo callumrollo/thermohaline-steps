@@ -41,7 +41,8 @@ def add_layer_stats_row(stats_df, df_layer):
     return stats_df
 
 
-def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30):
+def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30,
+                       temp_flag_only=False):
     """
     all data should be at 1 dbar resolution (for now)
     Notes:
@@ -54,6 +55,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     :param ml_density_difference: maximum density gradient difference of mixed layer (kg m^-3), default: 0.005
     :param av_window: averaging window to obtain background profiles (dbar), default: 200
     :param interface_max_height: Maximum allowed height of interfaces between mixed layers (dbar), default: 30
+    :param temp_flag_only: bool, if True, will flag potential mixed layers only by temperature, default: False
     :return:
     """
     # TODO import test: are data evenly sampled in pressure? Are the monotonically increasing?
@@ -97,13 +99,16 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df['mixed_layer_sigma_mask'] = True
     df.loc[np.abs(df_diff.sigma1) < ml_grad, 'mixed_layer_sigma_mask'] = False
     # Combine logical masks for a mask. Mixed layers must satisfy criteria for temperature, salinity and density
-    df['mixed_layer_mask'] = df.mixed_layer_temp_mask | df.mixed_layer_sal_mask | df.mixed_layer_sigma_mask
+    if temp_flag_only:
+        df['mixed_layer_mask'] = df['mixed_layer_temp_mask']
+    else:
+        df['mixed_layer_mask'] = df.mixed_layer_temp_mask | df.mixed_layer_sal_mask | df.mixed_layer_sigma_mask
     df['gradient_layer_final_mask'] = True
 
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
 
-    # If 1 mixed layer or less, bail out
+    # If 1 mixed layer point or less, bail out
     if len(df_ml) < 2:
         return df, None, None
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
@@ -138,7 +143,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         prev_index = i
 
     # Drop mixed layers with density difference exceeding ml_density_difference
-    df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
+    if not temp_flag_only:
+        df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
     df_ml_stats = df_ml_stats.reset_index()
     """
     Step 2  Assess gradient/interface layers between mixed layers and calculate their properties
