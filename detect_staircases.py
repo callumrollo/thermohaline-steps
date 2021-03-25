@@ -177,18 +177,25 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         df_gl_stats = add_layer_stats_row(df_gl_stats, gl_rows)
         prev_row = row
 
+    # Exclude gradient layers with lesser variability in temp, salinity or density than adjacent mixed layers
+    for property_range in ['ct_range', 'sa_range', 'sigma1_range']:
+        df_gl_stats.loc[df_ml_stats.iloc[1:][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
+        df_gl_stats.loc[df_ml_stats.iloc[:-1][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
+        
     """
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
+    df_gl_stats['bad_grad_layer'] = False
     # Exclude gradient layers that are thicker than the max height, or thicker than adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.maximum.reduce(
         [df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values])
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height
-    df_gl_stats.loc[df_gl_stats.layer_height > df_gl_stats.adj_ml_height, 'p_start'] = np.nan
-    df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'p_start'] = np.nan
+    df_gl_stats.loc[df_gl_stats.layer_height > df_gl_stats.adj_ml_height, 'bad_grad_layer'] = True
+    df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'bad_grad_layer'] = True
+
+
 
     # TODO remove interfaces with temp or salinity inversions
-    # TODO Exclude mixed layers with greater variability in temp, salinity or density than adjacent gradient layers
 
     """
     Step 4 Classify layers in the double diffusive regime as salt finger (sf) or diffusive convection (dc)
@@ -230,9 +237,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > -45) & (df_gl_stats['diffusive_convection'])), :]
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), :]
 
-    # Drop interfaces that do not pass height criteria
-    df_gl_stats = df_gl_stats.loc[~(df_gl_stats.layer_height > df_gl_stats.adj_ml_height), :]
-    df_gl_stats = df_gl_stats.loc[~(df_gl_stats.layer_height > interface_max_height), :]
+    # Drop interfaces that do not pass the criteria
+    df_gl_stats = df_gl_stats.loc[~df_gl_stats['bad_grad_layer'], :]
 
     # Populate masks of mixed and gradient layers before returning dataframe
     for i, row in df_ml_stats[df_ml_stats['salt_finger_step']].iterrows():
