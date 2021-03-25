@@ -10,6 +10,7 @@ This work is free to reuse under the terms of the GPL v3. See COPYING file or ht
 import gsw as gsw
 import pandas as pd
 import numpy as np
+from scipy.signal import argrelextrema
 
 
 def center_diff_df(dataframe, pressure_step):
@@ -179,9 +180,11 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
 
     # Exclude gradient layers with lesser variability in temp, salinity or density than adjacent mixed layers
     for property_range in ['ct_range', 'sa_range', 'sigma1_range']:
-        df_gl_stats.loc[df_ml_stats.iloc[1:][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
-        df_gl_stats.loc[df_ml_stats.iloc[:-1][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
-        
+        df_gl_stats.loc[
+            df_ml_stats.iloc[1:][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
+        df_gl_stats.loc[
+            df_ml_stats.iloc[:-1][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
+
     """
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
@@ -193,9 +196,19 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_gl_stats.loc[df_gl_stats.layer_height > df_gl_stats.adj_ml_height, 'bad_grad_layer'] = True
     df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'bad_grad_layer'] = True
 
-
-
-    # TODO remove interfaces with temp or salinity inversions
+    # Remove interfaces with temp or salinity inversions
+    for i, row in df_gl_stats.iterrows():
+        if row.p_end - row.p_start < 2:
+            # do not look for turning points in layers with only one point
+            continue
+        layer = df.loc[((df.p >= row.p_start) & (df.p <= row.p_end)), :]
+        maxima_ct = len(argrelextrema(layer['ct'].values, np.greater)[0])
+        maxima_sa = len(argrelextrema(layer['sa'].values, np.greater)[0])
+        minima_ct = len(argrelextrema(layer['ct'].values, np.less)[0])
+        minima_sa = len(argrelextrema(layer['sa'].values, np.less)[0])
+        turning_points = np.array([maxima_ct, maxima_sa, minima_ct, minima_sa])
+        if (turning_points > 2).any():
+            df_gl_stats.loc[i, 'bad_grad_layer'] = True
 
     """
     Step 4 Classify layers in the double diffusive regime as salt finger (sf) or diffusive convection (dc)
@@ -237,7 +250,11 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > -45) & (df_gl_stats['diffusive_convection'])), :]
     df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), :]
 
-    # Drop interfaces that do not pass the criteria
+    """
+    Cleaning up and returning data
+    """
+
+    # Drop interfaces that do not pass the criteria in steps 2 and 3
     df_gl_stats = df_gl_stats.loc[~df_gl_stats['bad_grad_layer'], :]
 
     # Populate masks of mixed and gradient layers before returning dataframe
