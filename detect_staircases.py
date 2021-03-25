@@ -12,14 +12,14 @@ import pandas as pd
 import numpy as np
 
 
-def center_diff_df(df, pressure_step):
+def center_diff_df(dataframe, pressure_step):
     """
     Performs central difference on a data frame. First and last rows are lost in this procedure
-    :param df: Dataframe of evenly spaced observations
+    :param dataframe: Dataframe of evenly spaced observations
     :param pressure_step: Pressure difference between beach row in df
     :return: Central difference of each row from its neighbours
     """
-    return (df.diff() - df.diff(periods=-1)) / (2*pressure_step)
+    return (dataframe.diff() - dataframe.diff(periods=-1)) / (2 * pressure_step)
 
 
 def add_layer_stats_row(stats_df, df_layer):
@@ -78,8 +78,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df = df_input.iloc[1:-1].reindex()
     df_smooth = df_smooth_input.iloc[1:-1].reindex()
     df['turner_ang'], df['density_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_midpoints.sa,
-                                                                               df_smooth_midpoints.ct,
-                                                                               df_smooth_midpoints.p, axis=0)
+                                                                             df_smooth_midpoints.ct,
+                                                                             df_smooth_midpoints.p, axis=0)
     # Create masks of mixed layers and gradient layers at the levels of the input data
     df['mixed_layer_final_mask'] = True
     # Take the center diff of the dataframe wrt pressure
@@ -108,9 +108,30 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
 
-    # If 1 mixed layer point or less, bail out
+    # Loop through mixed layers, making breaks where the mixed layer exceeds maximum allowed density variation
+    # Differing from van der Boog et al., this removes only the last point of a mixed layer, not first and last
+    new_layer = True
+    start_pden = df_ml.iloc[0].sigma1
+    prev_index = 0
+    breaks = []
+    for i, row in df_ml.iterrows():
+        if i == prev_index + 1:
+            if new_layer:
+                start_pden = df_ml.loc[prev_index, 'sigma1']
+                new_layer = False
+            if np.abs(row.sigma1 - start_pden) > ml_density_difference:
+                if i - 1 not in breaks:
+                    breaks.append(i)
+                new_layer = True
+        else:
+            new_layer = True
+        prev_index = i
+    df_ml = df_ml.drop(breaks)
+
+    # If 1 mixed layer or less, bail out
     if len(df_ml) < 2:
         return df, None, None
+
     # Create a dataframe for mixed layer stats. Each row will match a mixed layer
     df_ml_stats = pd.DataFrame(
         columns=['p_start', 'p_end', 'ct', 'sa', 'sigma1', 'p', 'ct_range', 'sa_range', 'sigma1_range',
@@ -142,10 +163,6 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
             continuous_ml = False
         prev_index = i
 
-    # Drop mixed layers with density difference exceeding ml_density_difference
-    if not temp_flag_only:
-        df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
-    df_ml_stats = df_ml_stats.reset_index()
     """
     Step 2  Assess gradient/interface layers between mixed layers and calculate their properties
     """
@@ -171,7 +188,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'p_start'] = np.nan
 
     # TODO remove interfaces with temp or salinity inversions
-    # TODO Exclude mixed layers with greater variability in temperature, salinity or density than adjacent gradient layers
+    # TODO Exclude mixed layers with greater variability in temp, salinity or density than adjacent gradient layers
 
     """
     Step 4 Classify layers in the double diffusive regime as salt finger (sf) or diffusive convection (dc)
@@ -225,3 +242,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
 
     return df, df_ml_stats, df_gl_stats
+
+
+if __name__ == '__main__':
+    df_glider = pd.read_csv(
+        '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/glider_staircase_samp.csv')
+    output = classify_staircase(df_glider.pressure_1db, df_glider.cons_temp, df_glider.abs_salinity)
+    # print(output.max())
