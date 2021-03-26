@@ -229,6 +229,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
             df.loc[row.p_start:row.p_end, 'grad_layer_step4_mask'] = False
     ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step4_mask, grad=True, label='Step 4')
     offset += offset_step
+
+
     """
     Step 5 Identify sequences of steps. A step is defined as a mixed layer bounded by two interfaces of matching double
     diffusive regime. This excludes most thermohaline intrusions
@@ -248,27 +250,32 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         if prev_gl_row.diffusive_convection & next_gl_row.diffusive_convection:
             df_ml_stats.loc[i, 'diffusive_convection_step'] = True
             df_gl_stats.loc[i - 1:i, 'diffusive_convection_step'] = True
-
+    # Class first and last mixed layers under both regimes, will be classified by Turner angle
+    df_ml_stats.loc[i+1, 'salt_finger_step'] = True
+    df_ml_stats.loc[0, 'salt_finger_step'] = True
+    df_ml_stats.loc[i+1, 'diffusive_convection'] = True
+    df_ml_stats.loc[0, 'diffusive_convection'] = True
     # Drop interfaces with turner angles that do not match their double diffusive regime
-    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > 90) & (df_gl_stats['salt_finger'])), :]
-    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < 45) & (df_gl_stats['salt_finger'])), :]
-    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] > -45) & (df_gl_stats['diffusive_convection'])), :]
-    df_gl_stats = df_gl_stats.loc[~((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), :]
+    df_gl_stats.loc[((df_gl_stats['turner_ang'] > 90) & (df_gl_stats['salt_finger'])), 'bad_grad_layer'] = True
+    df_gl_stats.loc[((df_gl_stats['turner_ang'] < 45) & (df_gl_stats['salt_finger'])), 'bad_grad_layer'] = True
+    df_gl_stats.loc[((df_gl_stats['turner_ang'] > -45) & (df_gl_stats['diffusive_convection'])), 'bad_grad_layer'] = True
+    df_gl_stats.loc[((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), 'bad_grad_layer'] = True
 
-    # Drop interfaces that do not pass height criteria
-    # df_gl_stats = df_gl_stats.loc[~(df_gl_stats.layer_height > df_gl_stats.adj_ml_height), :]
-    # df_gl_stats = df_gl_stats.loc[~(df_gl_stats.layer_height > interface_max_height), :]
+    # Flag bad mixed layers following grad layers
+    df_ml_stats['bad_mixed_layer'] = False
+    df_ml_stats.loc[1:, 'bad_mixed_layer'] = df_gl_stats.bad_grad_layer.values
+    df_ml_stats.loc[0, 'bad_mixed_layer'] = df_gl_stats.bad_grad_layer.values[0]
 
     # Populate masks of mixed and gradient layers before returning dataframe
-    for i, row in df_ml_stats[df_ml_stats['salt_finger_step']].iterrows():
+    for i, row in df_ml_stats[(df_ml_stats['salt_finger_step']) & (~df_ml_stats['bad_mixed_layer'])].iterrows():
         df.loc[row.p_start:row.p_end, 'mixed_layer_final_mask'] = False
 
-    for i, row in df_gl_stats[df_gl_stats['salt_finger_step']].iterrows():
+    for i, row in df_gl_stats[(df_gl_stats['salt_finger_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
 
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
-    offset += offset_step
     ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')
+    offset += offset_step
+    ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
     ax.set(xlabel='Offset conservative temperature (C)', ylabel='Pressure (dbar)',
            ylim=(100, 1000), xlim=(12.5, 18))
     #        ylim = (400, 700), xlim = (13, 16))
