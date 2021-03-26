@@ -11,6 +11,7 @@ import gsw as gsw
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import argrelextrema
 
 
 def center_diff_df(df, pressure_step):
@@ -185,16 +186,30 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
     # Exclude gradient layers that are thicker than the max height, or thicker than adjacent mixed layers
-    df_gl_stats['adj_ml_height'] = np.nanmin(
+    df_gl_stats['adj_ml_height'] = np.nanmax(
         np.array([df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values]), 0)
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height
+    df_gl_stats.loc[df_gl_stats.height_ratio < 0.5, 'bad_grad_layer'] = True
+    df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'bad_grad_layer'] = True
 
-    # TODO remove interfaces with temp or salinity inversions
+
+    # Remove interfaces with temp or salinity inversions
+    for i, row in df_gl_stats.iterrows():
+        if row.p_end - row.p_start < 2:
+            # do not look for turning points in layers with only one point
+            continue
+        layer = df.loc[((df.p >= row.p_start) & (df.p <= row.p_end)), :]
+        maxima_ct = len(argrelextrema(layer['ct'].values, np.greater)[0])
+        maxima_sa = len(argrelextrema(layer['sa'].values, np.greater)[0])
+        minima_ct = len(argrelextrema(layer['ct'].values, np.less)[0])
+        minima_sa = len(argrelextrema(layer['sa'].values, np.less)[0])
+        turning_points = np.array([maxima_ct, maxima_sa, minima_ct, minima_sa])
+        if (turning_points > 2).any():
+            df_gl_stats.loc[i, 'bad_grad_layer'] = True
+
     df['grad_layer_step3_mask'] = True
-    for i, row in df_gl_stats.loc[df_gl_stats['height_ratio'] > 0.5, :].iterrows():
+    for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
         df.loc[row.p_start:row.p_end, 'grad_layer_step3_mask'] = False
-    df_gl_stats['good_layer'] = False
-    df_gl_stats.loc[df_gl_stats['height_ratio'] > 0.5, 'good_layer'] = True
     ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step3_mask, grad=True, label='Step 3')
     offset += offset_step
     """
@@ -209,7 +224,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df_gl_stats.loc[(salt_grad.values > 0) & (temp_grad.values > 0), 'diffusive_convection'] = True
 
     df['grad_layer_step4_mask'] = True
-    for i, row in df_gl_stats[df_gl_stats['good_layer']].iterrows():
+    for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
         if row.salt_finger or row.diffusive_convection:
             df.loc[row.p_start:row.p_end, 'grad_layer_step4_mask'] = False
     ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step4_mask, grad=True, label='Step 4')
