@@ -117,6 +117,26 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
 
+    # Loop through mixed layers, making breaks where the mixed layer exceeds maximum allowed density variation
+    # Differing from van der Boog et al., this removes only the last point of a mixed layer, not first and last
+    new_layer = True
+    start_pden = df_ml.iloc[0].sigma1
+    prev_index = 0
+    breaks = []
+    for i, row in df_ml.iterrows():
+        if i == prev_index + 1:
+            if new_layer:
+                start_pden = df_ml.loc[prev_index, 'sigma1']
+                new_layer = False
+            if np.abs(row.sigma1 - start_pden) > ml_density_difference:
+                if i - 1 not in breaks:
+                    breaks.append(i)
+                new_layer = True
+        else:
+            new_layer = True
+        prev_index = i
+    df_ml = df_ml.drop(breaks)
+
     # If 1 mixed layer or less, bail out
     if len(df_ml) < 2:
         return df, None, None
@@ -153,9 +173,6 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     # Add final mixed layer
     df_mixed_layer = df_ml.loc[start_index:prev_index]
     df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
-    # Drop mixed layers with density difference exceeding ml_density_difference
-    df_ml_stats = df_ml_stats[df_ml_stats.sigma1_range < ml_density_difference]
-    df_ml_stats = df_ml_stats.reset_index()
 
     df['mixed_layer_step1_mask'] = True
     for i, row in df_ml_stats.iterrows():
