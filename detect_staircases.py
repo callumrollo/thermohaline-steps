@@ -185,7 +185,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     """
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
-    # Exclude gradient layers that are thicker than the max height, or thicker than adjacent mixed layers
+    # Exclude gradient layers that are thicker than the max height, or more than twice as thick as adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.nanmax(
         np.array([df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values]), 0)
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height

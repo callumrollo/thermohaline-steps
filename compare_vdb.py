@@ -9,7 +9,7 @@ sys.path.append('/media/callum/storage/Documents/Eureka/processing/staircase_exp
 sys.path.append('/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/')
 from detect_staircases import classify_staircase
 
-argo_ncs = glob.glob('argo*.nc')
+argo_ncs = glob.glob('/media/callum/storage/Documents/Eureka/processing/staircase_experiment/argo*.nc')
 
 ds_sub = []
 for nc in argo_ncs:
