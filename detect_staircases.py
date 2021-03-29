@@ -43,7 +43,8 @@ def add_layer_stats_row(stats_df, df_layer):
     return stats_df
 
 
-def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30):
+def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30,
+                       temp_flag_only=False, show_steps=False):
     """
     all data should be at 1 dbar resolution (for now)
     Notes:
@@ -56,7 +57,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     :param ml_density_difference: maximum density gradient difference of mixed layer (kg m^-3), default: 0.005
     :param av_window: averaging window to obtain background profiles (dbar), default: 200
     :param interface_max_height: Maximum allowed height of interfaces between mixed layers (dbar), default: 30
-    :return:
+    :param temp_flag_only: bool, if True, will flag potential mixed layers only by temperature, default: False
+    :return: dataframe at supplied pressure steps, dataframe of mixed layers, dataframe of gradient layers.
     """
     # TODO import test: are data evenly sampled in pressure? Are the monotonically increasing?
     """
@@ -99,14 +101,18 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df['mixed_layer_sigma_mask'] = True
     df.loc[np.abs(df_diff.sigma1) < ml_grad, 'mixed_layer_sigma_mask'] = False
     # Combine logical masks for a mask. Mixed layers must satisfy criteria for temperature, salinity and density
-    df['mixed_layer_mask'] = df.mixed_layer_temp_mask | df.mixed_layer_sal_mask | df.mixed_layer_sigma_mask
+    if temp_flag_only:
+        df['mixed_layer_mask'] = df['mixed_layer_temp_mask']
+    else:
+        df['mixed_layer_mask'] = df.mixed_layer_temp_mask | df.mixed_layer_sal_mask | df.mixed_layer_sigma_mask
     df['gradient_layer_final_mask'] = True
 
-    fig, ax = plt.subplots()
-    offset_step = 0.5
-    offset = 0
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_temp_mask, label='0.5')
-    offset += offset_step
+    if show_steps:
+        fig, ax = plt.subplots()
+        offset_step = 0.5
+        offset = 0
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_temp_mask, label='0.5')
+        offset += offset_step
 
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
@@ -154,8 +160,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df['mixed_layer_step1_mask'] = True
     for i, row in df_ml_stats.iterrows():
         df.loc[row.p_start:row.p_end, 'mixed_layer_step1_mask'] = False
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_step1_mask, label='Step 1')
-    offset += offset_step
+
+    if show_steps:
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_step1_mask, label='Step 1')
+        offset += offset_step
     """
     Step 2  Assess gradient/interface layers between mixed layers and calculate their properties
     """
@@ -180,8 +188,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df['grad_layer_step2_mask'] = True
     for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
         df.loc[row.p_start:row.p_end, 'grad_layer_step2_mask'] = False
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step2_mask, grad=True, label='Step 2')
-    offset += offset_step
+
+    if show_steps:
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step2_mask, grad=True, label='Step 2')
+        offset += offset_step
     """
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
@@ -203,15 +213,20 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         maxima_sa = len(argrelextrema(layer['sa'].values, np.greater)[0])
         minima_ct = len(argrelextrema(layer['ct'].values, np.less)[0])
         minima_sa = len(argrelextrema(layer['sa'].values, np.less)[0])
-        turning_points = np.array([maxima_ct, maxima_sa, minima_ct, minima_sa])
+        if temp_flag_only:
+            turning_points = np.array([maxima_ct, minima_ct])
+        else:
+            turning_points = np.array([maxima_ct, maxima_sa, minima_ct, minima_sa])
         if (turning_points > 2).any():
             df_gl_stats.loc[i, 'bad_grad_layer'] = True
 
     df['grad_layer_step3_mask'] = True
     for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
         df.loc[row.p_start:row.p_end, 'grad_layer_step3_mask'] = False
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step3_mask, grad=True, label='Step 3')
-    offset += offset_step
+
+    if show_steps:
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step3_mask, grad=True, label='Step 3')
+        offset += offset_step
     """
     Step 4 Classify layers in the double diffusive regime as salt finger (sf) or diffusive convection (dc)
     """
@@ -227,10 +242,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
         if row.salt_finger or row.diffusive_convection:
             df.loc[row.p_start:row.p_end, 'grad_layer_step4_mask'] = False
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step4_mask, grad=True, label='Step 4')
-    offset += offset_step
 
-
+    if show_steps:
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step4_mask, grad=True, label='Step 4')
+        offset += offset_step
     """
     Step 5 Identify sequences of steps. A step is defined as a mixed layer bounded by two interfaces of matching double
     diffusive regime. This excludes most thermohaline intrusions
@@ -273,14 +288,15 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     for i, row in df_gl_stats[(df_gl_stats['salt_finger_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
         df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
 
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')
-    offset += offset_step
-    ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
-    ax.set(xlabel='Offset conservative temperature (C)', ylabel='Pressure (dbar)',
-           ylim=(100, 1000), xlim=(12.5, 18))
-    #        ylim = (400, 700), xlim = (13, 16))
-    ax.invert_yaxis()
-    plt.show()
+    if show_steps:
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')
+        offset += offset_step
+        ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
+        ax.set(xlabel='Offset conservative temperature (C)', ylabel='Pressure (dbar)',
+        #    ylim=(100, 1000), xlim=(12.5, 18))
+            ylim=(250, 600), xlim=(6, 15))
+        ax.invert_yaxis()
+        plt.show()
 
     return df, df_ml_stats, df_gl_stats
 
@@ -325,6 +341,6 @@ if __name__ == '__main__':
         sa[center - span:center + span] = np.mean(sa_orig[center - span:center + span])
     df_in = pd.read_csv(
         '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/vanderboog_argo_demo_data.csv')
-    df, mixes, grads = classify_staircase(df_in.pressure, df_in.conservative_temperature, df_in.absolute_salinity)
+    df, mixes, grads = classify_staircase(df_in.pressure, df_in.conservative_temperature, df_in.absolute_salinity, temp_flag_only=True)
     # df, mixes, grads = classify_staircase(p, ct, sa)
     # plotter(df)
