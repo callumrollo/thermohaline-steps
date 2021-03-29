@@ -116,7 +116,9 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
 
     # Create dataframe of only points within mixed layers
     df_ml = df[~df.mixed_layer_mask]
-
+    # If 1 mixed layer or less, bail out
+    if len(df_ml) < 2:
+        return df, None, None
     # Loop through mixed layers, making breaks where the mixed layer exceeds maximum allowed density variation
     # Differing from van der Boog et al., this removes only the last point of a mixed layer, not first and last
     new_layer = True
