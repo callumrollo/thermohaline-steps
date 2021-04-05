@@ -47,14 +47,4 @@ ax.set(xlim=(13, 15), ylim=(400,900))
 ax.invert_yaxis()
 plt.show()
 
-fig, ax = plt.subplots()
-offset=0.1
-ax.plot(ds.sa[dive_id, :], ds.pressure, color='gray', alpha=0.3)
-ax.plot(ds.sa[dive_id,:] * ds.mask_ml_sf[dive_id,:] / ds.mask_ml_sf[dive_id,:], ds.pressure, color='C0')
-ax.plot(ds.sa[dive_id,:] * ds.mask_gl_sf[dive_id,:] / ds.mask_gl_sf[dive_id,:], ds.pressure, color='C1')
-ax.plot(df_callum_argo.sa + offset, df_callum_argo.p, color='gray', alpha=0.3)
-ax.plot(np.ma.array(df_callum_argo.sa, mask=df_callum_argo['mixed_layer_final_mask']) + offset, df_callum_argo.p, color='C0')
-ax.plot(np.ma.array(df_callum_argo.sa, mask=df_callum_argo['gradient_layer_final_mask']) + offset, df_callum_argo.p, color='C1')
-ax.set(xlim=(38.6, 39.1), ylim=(400,900))
-ax.invert_yaxis()
-plt.show()
+

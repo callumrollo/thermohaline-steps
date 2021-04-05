@@ -11,6 +11,7 @@ sys.path.append('/media/callum/storage/Documents/Eureka/processing/staircase_exp
 from detect_staircases import classify_staircase
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 p = np.arange(1000)
 ct = np.linspace(20, 0, len(p))
@@ -29,12 +30,26 @@ def test_ideal():
     assert len(mixes) == 8
     assert len(grads) == 7
 
+
 def test_temp_flag_only():
     # With ideal input, temp flag only should return the same results
     df, mixes, grads = classify_staircase(p, ct, sa)
     df_t, mixes_t, grads_t = classify_staircase(p, ct, sa, temp_flag_only=True)
     assert (df.mixed_layer_final_mask == df_t.mixed_layer_final_mask).all()
     plotter(df_t, mixes_t, grads_t)
+
+
+def test_vanderboog_argo():
+    # checking against the Argo data from vanderBoog paper
+    vdb = pd.read_csv('vanderboog_argo_demo_data.csv')
+    vdb = vdb.loc[:1000, :]
+    df, mixes, grads = classify_staircase(vdb.pressure, vdb.conservative_temperature,
+                                          vdb.absolute_salinity)
+    mixes = mixes[~mixes.bad_mixed_layer]
+    plotter(df, mixes, grads)
+    assert mixes.p_start.min() > 450
+    assert mixes.p_end.max() < 950
+    assert len(mixes) == 9
 
 
 def plotter(df, mixes, grads):
