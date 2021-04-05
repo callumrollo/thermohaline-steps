@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from reimplement.starcase_functions import prep_data, identify_mixed_layers, mixed_layer_max_variability, \
+from reimplement.staircase_functions import prep_data, identify_mixed_layers, mixed_layer_max_variability, \
     mixed_layer_stats, gradient_layer_stats, identify_staircase_sequence, filter_gradient_layers, \
     classify_salt_finger_diffusive_convective
 
