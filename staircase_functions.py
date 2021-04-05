@@ -204,10 +204,13 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats):
     df_gl_stats.loc[
         ((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), 'bad_grad_layer'] = True
 
-    # Flag bad mixed layers following grad layers
+    # Flag mixed layers following that are not adjacent to good grad layers
+    good_grad_layers = df_gl_stats[~df_gl_stats.bad_grad_layer]
     df_ml_stats['bad_mixed_layer'] = False
-    df_ml_stats.loc[1:, 'bad_mixed_layer'] = df_gl_stats.bad_grad_layer.values
-    df_ml_stats.loc[0, 'bad_mixed_layer'] = df_gl_stats.bad_grad_layer.values[0]
+    for i, row in df_ml_stats.iterrows():
+        if not (np.abs((row.p_end - good_grad_layers.p_start)) <= 2).any() \
+                and not (np.abs((row.p_start - good_grad_layers.p_end)) <= 2).any():
+            df_ml_stats.loc[i, 'bad_mixed_layer'] = True
 
     # Populate masks of mixed and gradient layers before returning dataframe
     for i, row in df_ml_stats[(df_ml_stats['salt_finger_step']) & (~df_ml_stats['bad_mixed_layer'])].iterrows():
