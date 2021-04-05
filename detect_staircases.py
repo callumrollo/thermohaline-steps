@@ -59,7 +59,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     if len(df_ml) < 2:
         return df, None, None
 
-    df_ml = mixed_layer_max_variability(df_ml, ml_density_difference)
+    df_ml = mixed_layer_max_variability(df_ml, ml_density_difference, temp_flag_only)
     df, df_ml_stats = mixed_layer_stats(df, df_ml, pressure_step)
 
     if show_steps:

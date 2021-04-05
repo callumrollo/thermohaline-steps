@@ -48,6 +48,8 @@ def prep_data(p, ct, sa, av_window):
     # Drop first and last points, as they have no corresponding turner angle
     df = df_input.iloc[1:-1].reindex()
     df_smooth = df_smooth_input.iloc[1:-1].reindex()
+    df['alpha_smooth'] = df_smooth.alpha
+    df['beta_smooth'] = df_smooth.beta
     df['turner_ang'], df['density_ratio'], __ = gsw.stability.Turner_Rsubrho(df_smooth_midpoints.sa,
                                                                              df_smooth_midpoints.ct,
                                                                              df_smooth_midpoints.p, axis=0)
@@ -77,8 +79,7 @@ def identify_mixed_layers(df, df_smooth, df_diff, ml_grad, temp_flag_only):
     return df, df_ml
 
 
-def mixed_layer_max_variability(df_ml, ml_density_difference):
-    # TODO apply temp only method here
+def mixed_layer_max_variability(df_ml, ml_density_difference, temp_flag_only):
     # Loop through mixed layers, making breaks where the mixed layer exceeds maximum allowed density variation
     # Differing from van der Boog et al., this removes only the last point of a mixed layer, not first and last
     new_layer = True
@@ -88,9 +89,16 @@ def mixed_layer_max_variability(df_ml, ml_density_difference):
     for i, row in df_ml.iterrows():
         if i == prev_index + 1:
             if new_layer:
-                start_pden = df_ml.loc[prev_index, 'sigma1']
+                if temp_flag_only:
+                    start_pden = df_ml.loc[prev_index, 'ct']
+                else:
+                    start_pden = df_ml.loc[prev_index, 'sigma1']
                 new_layer = False
-            if np.abs(row.sigma1 - start_pden) > ml_density_difference:
+            if temp_flag_only:
+                density_diff = np.abs(row.ct - start_pden) * row.alpha_smooth * 1028
+            else:
+                density_diff = np.abs(row.sigma1 - start_pden)
+            if density_diff > ml_density_difference:
                 if i - 1 not in breaks:
                     breaks.append(i)
                 new_layer = True
