@@ -19,8 +19,12 @@ for dive_no in np.arange(1011, 1016):
         new_index = pd.Index(np.arange(0, df_dive.pressure_1db.max(), 1), name="pressure_1db")
         df_1db = df_dive.set_index("pressure_1db").reindex(new_index).reset_index()
         df, df_ml_stats, df_gl_stats = classify_staircase(df_1db.pressure_1db, df_1db.cons_temp_despike, df_1db.abs_salinity_despike,
-                                                        ml_grad=0.001, ml_density_difference=0.01, av_window=200,
+                                                        ml_grad=0.001, ml_density_difference=0.01, av_window=100,
                                                         interface_max_height=30, temp_flag_only=True, show_steps=True)
 
 
-
+df_micro = pd.read_csv('/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/micro_test.csv')
+df, df_ml_stats, df_gl_stats = classify_staircase(df_micro.depth, df_micro.ct,
+                                                  df_micro.sa,
+                                                  ml_grad=0.001, ml_density_difference=0.01, av_window=100,
+                                                  interface_max_height=30, temp_flag_only=True, show_steps=True)
