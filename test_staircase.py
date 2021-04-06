@@ -19,7 +19,7 @@ sa = np.linspace(35, 33, len(p))
 ct_orig = ct.copy()
 sa_orig = sa.copy()
 span = 40
-for center in np.arange(5, 850, 100):
+for center in np.arange(0, 850, 100):
     ct[center - span:center + span] = np.mean(ct_orig[center - span:center + span])
     sa[center - span:center + span] = np.mean(sa_orig[center - span:center + span])
 
@@ -39,6 +39,38 @@ def test_temp_flag_only():
     assert (mixes.p_end == mixes_t.p_end).all()
     assert (grads.p_start == grads_t.p_start).all()
     plotter(df_t, mixes_t, grads_t)
+
+
+def test_spacing_long():
+    p = np.arange(0, 1000, 2)
+    ct = np.linspace(20, 0, len(p))
+    sa = np.linspace(35, 33, len(p))
+    ct_orig = ct.copy()
+    sa_orig = sa.copy()
+    span = 20
+    for center in np.arange(0, 425, 50):
+        ct[center - span:center + span] = np.mean(ct_orig[center - span:center + span])
+        sa[center - span:center + span] = np.mean(sa_orig[center - span:center + span])
+    df, mixes, grads = classify_staircase(p, ct, sa, av_window=50)
+    plotter(df, mixes, grads)
+    assert len(mixes) == 8
+    assert len(grads) == 7
+
+
+def test_spacing_close():
+    p = np.arange(0, 1000, 0.1)
+    ct = np.linspace(20, 0, len(p))
+    sa = np.linspace(35, 33, len(p))
+    ct_orig = ct.copy()
+    sa_orig = sa.copy()
+    span = 400
+    for center in np.arange(0, 8500, 1000):
+        ct[center - span:center + span] = np.mean(ct_orig[center - span:center + span])
+        sa[center - span:center + span] = np.mean(sa_orig[center - span:center + span])
+    df, mixes, grads = classify_staircase(p, ct, sa, av_window=1000)
+    plotter(df, mixes, grads)
+    assert len(mixes) == 8
+    assert len(grads) == 7
 
 
 def test_vanderboog_argo():

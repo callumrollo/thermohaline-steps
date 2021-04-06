@@ -146,7 +146,7 @@ def mixed_layer_stats(df, df_ml, pressure_step):
 
     df['mixed_layer_step1_mask'] = True
     for i, row in df_ml_stats.iterrows():
-        df.loc[row.p_start:row.p_end, 'mixed_layer_step1_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'mixed_layer_step1_mask'] = False
     return df, df_ml_stats
 
 
@@ -171,7 +171,7 @@ def gradient_layer_stats(df, df_ml_stats):
             df_ml_stats.iloc[:-1][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
     df['grad_layer_step2_mask'] = True
     for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
-        df.loc[row.p_start:row.p_end, 'grad_layer_step2_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'grad_layer_step2_mask'] = False
     return df, df_gl_stats
 
 
@@ -218,14 +218,14 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
     df['mixed_layer_diffusive_convective_mask'] = True
     df['gradient_layer_diffusive_convective_mask'] = True
     for i, row in df_ml_stats[(df_ml_stats['salt_finger_step']) & (~df_ml_stats['bad_mixed_layer'])].iterrows():
-        df.loc[row.p_start:row.p_end, 'mixed_layer_salt_finger_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'mixed_layer_salt_finger_mask'] = False
     for i, row in df_gl_stats[(df_gl_stats['salt_finger_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
-        df.loc[row.p_start:row.p_end, 'gradient_layer_salt_finger_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'gradient_layer_salt_finger_mask'] = False
 
     for i, row in df_ml_stats[(df_ml_stats['diffusive_convection_step']) & (~df_ml_stats['bad_mixed_layer'])].iterrows():
-        df.loc[row.p_start:row.p_end, 'mixed_layer_diffusive_convective_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'mixed_layer_diffusive_convective_mask'] = False
     for i, row in df_gl_stats[(df_gl_stats['diffusive_convection_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
-        df.loc[row.p_start:row.p_end, 'gradient_layer_diffusive_convective_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'gradient_layer_diffusive_convective_mask'] = False
     df['mixed_layer_final_mask'] = np.logical_and(df['mixed_layer_salt_finger_mask'], df['mixed_layer_diffusive_convective_mask'])
     df['gradient_layer_final_mask'] = np.logical_and(df['gradient_layer_salt_finger_mask'], df['gradient_layer_diffusive_convective_mask'])
     return df, df_ml_stats, df_gl_stats
@@ -258,7 +258,7 @@ def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, t
 
     df['grad_layer_step3_mask'] = True
     for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
-        df.loc[row.p_start:row.p_end, 'grad_layer_step3_mask'] = False
+        df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'grad_layer_step3_mask'] = False
     return df, df_gl_stats
 
 
@@ -274,5 +274,5 @@ def classify_salt_finger_diffusive_convective(df, df_ml_stats, df_gl_stats):
     df['grad_layer_step4_mask'] = True
     for i, row in df_gl_stats[~df_gl_stats['bad_grad_layer']].iterrows():
         if row.salt_finger or row.diffusive_convection:
-            df.loc[row.p_start:row.p_end, 'grad_layer_step4_mask'] = False
+            df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'grad_layer_step4_mask'] = False
     return df, df_gl_stats
