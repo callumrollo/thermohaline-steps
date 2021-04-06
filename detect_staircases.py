@@ -96,7 +96,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     diffusive regime. This excludes most thermohaline intrusions
     """
 
-    df, df_ml_stats, df_gl_stats = identify_staircase_sequence(df, df_ml_stats, df_gl_stats)
+    df, df_ml_stats, df_gl_stats = identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step)
 
     if show_steps:
         ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')

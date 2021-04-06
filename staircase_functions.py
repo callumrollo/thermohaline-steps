@@ -175,7 +175,7 @@ def gradient_layer_stats(df, df_ml_stats):
     return df, df_gl_stats
 
 
-def identify_staircase_sequence(df, df_ml_stats, df_gl_stats):
+def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
     df_ml_stats['salt_finger_step'] = False
     df_ml_stats['diffusive_convection_step'] = False
 
@@ -208,16 +208,26 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats):
     good_grad_layers = df_gl_stats[~df_gl_stats.bad_grad_layer]
     df_ml_stats['bad_mixed_layer'] = False
     for i, row in df_ml_stats.iterrows():
-        if not (np.abs((row.p_end - good_grad_layers.p_start)) <= 2).any() \
-                and not (np.abs((row.p_start - good_grad_layers.p_end)) <= 2).any():
+        if not (np.abs((row.p_end - good_grad_layers.p_start)) <= 5 * pressure_step).any() \
+                and not (np.abs((row.p_start - good_grad_layers.p_end)) <= 5 * pressure_step).any():
             df_ml_stats.loc[i, 'bad_mixed_layer'] = True
 
     # Populate masks of mixed and gradient layers before returning dataframe
+    df['mixed_layer_salt_finger_mask'] = True
+    df['gradient_layer_salt_finger_mask'] = True
+    df['mixed_layer_diffusive_convective_mask'] = True
+    df['gradient_layer_diffusive_convective_mask'] = True
     for i, row in df_ml_stats[(df_ml_stats['salt_finger_step']) & (~df_ml_stats['bad_mixed_layer'])].iterrows():
-        df.loc[row.p_start:row.p_end, 'mixed_layer_final_mask'] = False
-
+        df.loc[row.p_start:row.p_end, 'mixed_layer_salt_finger_mask'] = False
     for i, row in df_gl_stats[(df_gl_stats['salt_finger_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
-        df.loc[row.p_start:row.p_end, 'gradient_layer_final_mask'] = False
+        df.loc[row.p_start:row.p_end, 'gradient_layer_salt_finger_mask'] = False
+
+    for i, row in df_ml_stats[(df_ml_stats['diffusive_convection_step']) & (~df_ml_stats['bad_mixed_layer'])].iterrows():
+        df.loc[row.p_start:row.p_end, 'mixed_layer_diffusive_convective_mask'] = False
+    for i, row in df_gl_stats[(df_gl_stats['diffusive_convection_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
+        df.loc[row.p_start:row.p_end, 'gradient_layer_diffusive_convective_mask'] = False
+    df['mixed_layer_final_mask'] = np.logical_and(df['mixed_layer_salt_finger_mask'], df['mixed_layer_diffusive_convective_mask'])
+    df['gradient_layer_final_mask'] = np.logical_and(df['gradient_layer_salt_finger_mask'], df['gradient_layer_diffusive_convective_mask'])
     return df, df_ml_stats, df_gl_stats
 
 

@@ -36,6 +36,8 @@ def test_temp_flag_only():
     df, mixes, grads = classify_staircase(p, ct, sa)
     df_t, mixes_t, grads_t = classify_staircase(p, ct, sa, temp_flag_only=True)
     assert (df.mixed_layer_final_mask == df_t.mixed_layer_final_mask).all()
+    assert (mixes.p_end == mixes_t.p_end).all()
+    assert (grads.p_start == grads_t.p_start).all()
     plotter(df_t, mixes_t, grads_t)
 
 
@@ -47,22 +49,23 @@ def test_vanderboog_argo():
                                           vdb.absolute_salinity)
     mixes = mixes[~mixes.bad_mixed_layer]
     plotter(df, mixes, grads)
-    assert mixes.p_start.min() > 450
+    assert mixes.p_start.min() > 400
     assert mixes.p_end.max() < 950
-    assert len(mixes) == 9
+    assert len(mixes) >= 8
+    assert len(mixes) <= 10
 
 
 def plotter(df, mixes, grads):
     fig, ax = plt.subplots(1, 2, figsize=(18, 10), sharey='row')
     ax[0].plot(df.ct, df.p, color='gray', alpha=0.2)
-    ax[0].plot(np.ma.array(df.ct, mask=df['mixed_layer_final_mask']),
-               np.ma.array(df.p, mask=df['mixed_layer_final_mask']), color='C0')
-    ax[0].plot(np.ma.array(df.ct, mask=df['gradient_layer_final_mask']),
-               np.ma.array(df.p, mask=df['gradient_layer_final_mask']), color='C1')
+    ax[0].plot(np.ma.array(df.ct, mask=df['mixed_layer_salt_finger_mask']),
+               np.ma.array(df.p, mask=df['mixed_layer_salt_finger_mask']), color='C0')
+    ax[0].plot(np.ma.array(df.ct, mask=df['gradient_layer_salt_finger_mask']),
+               np.ma.array(df.p, mask=df['gradient_layer_salt_finger_mask']), color='C1')
 
     ax[1].plot(df.sa, df.p, color='gray', alpha=0.2)
-    ax[1].plot(np.ma.array(df.sa, mask=df['mixed_layer_final_mask']),
-               np.ma.array(df.p, mask=df['mixed_layer_final_mask']), color='C0')
-    ax[1].plot(np.ma.array(df.sa, mask=df['gradient_layer_final_mask']),
-               np.ma.array(df.p, mask=df['gradient_layer_final_mask']), color='C1')
+    ax[1].plot(np.ma.array(df.sa, mask=df['mixed_layer_salt_finger_mask']),
+               np.ma.array(df.p, mask=df['mixed_layer_salt_finger_mask']), color='C0')
+    ax[1].plot(np.ma.array(df.sa, mask=df['gradient_layer_salt_finger_mask']),
+               np.ma.array(df.p, mask=df['gradient_layer_salt_finger_mask']), color='C1')
     plt.show()
