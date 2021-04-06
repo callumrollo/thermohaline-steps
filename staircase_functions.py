@@ -154,7 +154,7 @@ def gradient_layer_stats(df, df_ml_stats):
     # Create empty dataframe with same columns and df_ml_stats
     df_gl_stats = pd.DataFrame(columns=df_ml_stats.columns)
     if len(df_ml_stats) < 2:
-        return df, df_ml_stats, df_gl_stats
+        return df, df_gl_stats
     prev_row = df_ml_stats.iloc[0]
     # Loop through mixed layer stats. All layers between mixed layers initially classified as gradient layers
     for i, row in df_ml_stats.iloc[1:].iterrows():
@@ -182,6 +182,7 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
     df_gl_stats['salt_finger_step'] = False
     df_gl_stats['diffusive_convection_step'] = False
 
+    i = 0
     for i, ml_row in df_ml_stats[1:-1].iterrows():
         prev_gl_row = df_gl_stats.loc[i - 1]
         next_gl_row = df_gl_stats.loc[i]

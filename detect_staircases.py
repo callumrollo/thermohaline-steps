@@ -65,6 +65,10 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     if show_steps:
         ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_step1_mask, label='Step 1')
         offset += offset_step
+
+    # If 1 mixed layer or less, bail out
+    if len(df_ml_stats) < 2:
+        return df, None, None
     """
     Step 2  Assess gradient/interface layers between mixed layers and calculate their properties
     """
