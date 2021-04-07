@@ -6,12 +6,12 @@ reject/fix non uniform data
 data with gaps
 """
 import sys
-
-sys.path.append('/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/')
-from detect_staircases import classify_staircase
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+sys.path.append('/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/')
+from detect_staircases import classify_staircase
+
 
 p = np.arange(1000)
 ct = np.linspace(20, 0, len(p))

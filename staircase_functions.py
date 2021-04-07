@@ -34,6 +34,7 @@ def add_layer_stats_row(stats_df, df_layer):
 
 
 def prep_data(p, ct, sa, av_window):
+    pressure_step = p[1] - p[0]
     df_input = pd.DataFrame(data={'p': p, 'ct': ct, 'sa': sa})
     df_input['sigma1'] = gsw.sigma1(df_input.sa, df_input.ct)
     # Interpolate linearly over nans in input data
@@ -43,7 +44,7 @@ def prep_data(p, ct, sa, av_window):
     df_smooth_input['alpha'] = gsw.alpha(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
     df_smooth_input['beta'] = gsw.beta(df_smooth_input.sa, df_smooth_input.ct, df_smooth_input.p)
     # Turner angle calculated from a 50 m smoothing, following van der Boog 
-    df_smooth_turner = df_input.rolling(window=50, center=True).mean()
+    df_smooth_turner = df_input.rolling(window=int(50/pressure_step), center=True).mean()
     df_smooth_midpoints = df_smooth_turner.rolling(window=2, center=True).mean()[1:]
     # Drop first and last points, as they have no corresponding turner angle
     df = df_input.iloc[1:-1].reindex()
@@ -56,7 +57,6 @@ def prep_data(p, ct, sa, av_window):
     # Create masks of mixed layers and gradient layers at the levels of the input data
     df['mixed_layer_final_mask'] = True
     # Take the center diff of the dataframe wrt pressure
-    pressure_step = df.iloc[1].p - df.iloc[0].p
     df_diff = center_diff_df(df, pressure_step)
     return df, df_smooth, df_diff, pressure_step
 
