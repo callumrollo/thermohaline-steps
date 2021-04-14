@@ -132,9 +132,10 @@ def mixed_layer_stats(df, df_ml, pressure_step):
                 df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
             continuous_ml = False
         prev_index = i
-    # Add final mixed layer
-    df_mixed_layer = df_ml.loc[start_index:prev_index]
-    df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
+    # Add final mixed layer if it is continuous
+    if continuous_ml:
+        df_mixed_layer = df_ml.loc[start_index:prev_index]
+        df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
 
     df['mixed_layer_step1_mask'] = True
     for i, row in df_ml_stats.iterrows():
@@ -201,7 +202,7 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
     df_gl_stats.loc[
         ((df_gl_stats['turner_ang'] < -90) & (df_gl_stats['diffusive_convection'])), 'bad_grad_layer'] = True
 
-    # Flag mixed layers following that are not adjacent to good grad layers
+    # Flag mixed layers following that are within 5 points of a good grad layer
     good_grad_layers = df_gl_stats[~df_gl_stats.bad_grad_layer]
     df_ml_stats['bad_mixed_layer'] = False
     for i, row in df_ml_stats.iterrows():
@@ -229,11 +230,11 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
 
 
 def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only, pressure_step):
-    # Exclude gradient layers that are thicker than the max height, or more than twice as thick as adjacent mixed layers
+    # Exclude gradient layers that are thicker than the max height, or one of the adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.nanmax(
         np.array([df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values]), 0)
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height
-    df_gl_stats.loc[df_gl_stats.height_ratio < 0.5, 'bad_grad_layer'] = True
+    df_gl_stats.loc[df_gl_stats.height_ratio < 1, 'bad_grad_layer'] = True
     df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'bad_grad_layer'] = True
 
     # Remove interfaces with temp or salinity inversions
