@@ -130,14 +130,6 @@ def mixed_layer_stats(df, df_ml, pressure_step):
                 # End of continuous mixed layer, add to table
                 df_mixed_layer = df_ml.loc[start_index:prev_index]
                 df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
-            else:
-                # Single sample mixed layer, add to table
-                df_mixed_layer = df_ml.loc[prev_index]
-                ml_row = {'p_start': df_mixed_layer.p, 'p_end': df_mixed_layer.p, 'ct': df_mixed_layer.ct,
-                          'sa': df_mixed_layer.sa, 'sigma1': df_mixed_layer.sigma1, 'p': df_mixed_layer.p,
-                          'ct_range': 0, 'sa_range': 0, 'sigma1_range': 0, 'layer_height': pressure_step,
-                          'turner_ang': df_mixed_layer.turner_ang, 'density_ratio': df_mixed_layer.density_ratio}
-                df_ml_stats = df_ml_stats.append(ml_row, ignore_index=True)
             continuous_ml = False
         prev_index = i
     # Add final mixed layer
@@ -150,7 +142,7 @@ def mixed_layer_stats(df, df_ml, pressure_step):
     return df, df_ml_stats
 
 
-def gradient_layer_stats(df, df_ml_stats):
+def gradient_layer_stats(df, df_ml_stats, temp_flag_only):
     # Create empty dataframe with same columns and df_ml_stats
     df_gl_stats = pd.DataFrame(columns=df_ml_stats.columns)
     if len(df_ml_stats) < 2:
@@ -164,7 +156,11 @@ def gradient_layer_stats(df, df_ml_stats):
 
     # Exclude gradient layers with lesser variability in temp, salinity or density than adjacent mixed layers
     df_gl_stats['bad_grad_layer'] = False
-    for property_range in ['ct_range', 'sa_range', 'sigma1_range']:
+    if temp_flag_only:
+        properties = ['ct_range']
+    else:
+        properties = ['ct_range', 'sa_range', 'sigma1_range']
+    for property_range in properties:
         df_gl_stats.loc[
             df_ml_stats.iloc[1:][property_range].values > df_gl_stats[property_range].values, 'bad_grad_layer'] = True
         df_gl_stats.loc[

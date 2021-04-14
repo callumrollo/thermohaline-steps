@@ -11,8 +11,8 @@ df_glider = pd.read_csv(
     '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/glider_1db.csv')
 figa, axa = plt.subplots(figsize=(20, 10))
 offset = 0
-for dive_no in np.arange(1011, 1026):
-    df_dive = df_glider[df_glider.dive_limb_ident == dive_no].copy()
+for dive_no in np.arange(1011, 1026, 0.5):
+    df_dive = df_glider[df_glider.dive_limb_dec == dive_no].copy()
     new_index = pd.Index(np.arange(0, df_dive.pressure_1db.max(), 1), name="pressure_1db")
     df_1db = df_dive.set_index("pressure_1db").reindex(new_index).reset_index()
     df, df_ml_stats, df_gl_stats = classify_staircase(df_1db.pressure_1db, df_1db.cons_temp_despike,
@@ -36,7 +36,7 @@ melon_dives = all_dives[(all_dives > 1000) & (all_dives < 2000)]
 df_out = pd.DataFrame()
 offset = 0
 for dive_no in melon_dives[10:-10]:
-    df_dive = df_glider[df_glider.dive_limb_ident == dive_no].copy()
+    df_dive = df_glider[df_glider.dive_limb_dec == dive_no].copy()
     new_index = pd.Index(np.arange(0, df_dive.pressure_1db.max(), 1), name="pressure_1db")
     df_1db = df_dive.set_index("pressure_1db").reindex(new_index).reset_index()
     df, df_ml_stats, df_gl_stats = classify_staircase(df_1db.pressure_1db, df_1db.cons_temp_despike,
