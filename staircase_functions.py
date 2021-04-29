@@ -229,12 +229,12 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
     return df, df_ml_stats, df_gl_stats
 
 
-def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only, pressure_step):
+def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only, pressure_step, layer_height_ratio):
     # Exclude gradient layers that are thicker than the max height, or one of the adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.nanmax(
         np.array([df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values]), 0)
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height
-    df_gl_stats.loc[df_gl_stats.height_ratio < 1, 'bad_grad_layer'] = True
+    df_gl_stats.loc[df_gl_stats.height_ratio < layer_height_ratio, 'bad_grad_layer'] = True
     df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'bad_grad_layer'] = True
 
     # Remove interfaces with temp or salinity inversions

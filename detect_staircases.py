@@ -17,12 +17,13 @@ from reimplement.staircase_functions import prep_data, identify_mixed_layers, mi
 
 
 def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30,
-                       temp_flag_only=False, show_steps=False):
+                       layer_height_ratio=1, temp_flag_only=False, show_steps=False):
     """
     all data should be at 1 dbar resolution (for now)
     Notes:
     - Currently dropping min and max pressure values, so can have Turner angle at all points
     - Turner angle and stability-ratio from smoothed profile
+    :param show_steps: if True, creates and shows a plot of filtering steps, default: False
     :param p: pressure (dbar)
     :param ct: conservative temperature (degrees celsius)
     :param sa: absolute salinity (g kg-1)
@@ -30,6 +31,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     :param ml_density_difference: maximum density gradient difference of mixed layer (kg m^-3), default: 0.005
     :param av_window: averaging window to obtain background profiles (dbar), default: 200
     :param interface_max_height: Maximum allowed height of interfaces between mixed layers (dbar), default: 30
+    :param layer_height_ratio: Maximum allowed ratio of miexed lyaer height to gradient layer height: default 1
     :param temp_flag_only: bool, if True, will flag potential mixed layers only by temperature, default: False
     :return: dataframe at supplied pressure steps, dataframe of mixed layers, dataframe of gradient layers.
     """
@@ -52,8 +54,6 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         fig, ax = plt.subplots()
         offset_step = 0.5
         offset = 0
-        ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_temp_mask, label='0.5')
-        offset += offset_step
 
     # If 1 mixed layer or less, bail out
     if len(df_ml) < 2:
@@ -81,7 +81,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
 
-    df, df_gl_stats = filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only, pressure_step)
+    df, df_gl_stats = filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only,
+                                             pressure_step, layer_height_ratio)
 
     if show_steps:
         ax = progress_plotter(ax, df.p, df.ct + offset, df.grad_layer_step3_mask, grad=True, label='Step 3')
@@ -108,7 +109,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
         ax.set(xlabel='Offset conservative temperature (C)', ylabel='Pressure (dbar)',
                #    ylim=(100, 1000), xlim=(12.5, 18))
-               ylim=(250, 600), xlim=(6, 15))
+               ylim=(250, 800), xlim=(13, 18))
         ax.invert_yaxis()
         plt.show()
 
@@ -123,7 +124,7 @@ def progress_plotter(ax, p, ct, mask, label='', grad=False):
     ax.plot(ct, p, color='gray', alpha=0.3)
     ax.plot(np.ma.array(ct, mask=mask),
             np.ma.array(p, mask=mask), color=line_color)
-    ax.text(ct.mean() + 0.8, 90, label, rotation=45)
+    ax.text(ct.mean() + 0.8, 240, label, rotation=45)
     return ax
 
 
