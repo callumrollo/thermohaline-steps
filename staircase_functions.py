@@ -224,12 +224,15 @@ def identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step):
         df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'mixed_layer_diffusive_convective_mask'] = False
     for i, row in df_gl_stats[(df_gl_stats['diffusive_convection_step']) & (~df_gl_stats['bad_grad_layer'])].iterrows():
         df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'gradient_layer_diffusive_convective_mask'] = False
-    df['mixed_layer_final_mask'] = np.logical_and(df['mixed_layer_salt_finger_mask'], df['mixed_layer_diffusive_convective_mask'])
-    df['gradient_layer_final_mask'] = np.logical_and(df['gradient_layer_salt_finger_mask'], df['gradient_layer_diffusive_convective_mask'])
+    df['mixed_layer_final_mask'] = np.logical_and(df['mixed_layer_salt_finger_mask'],
+                                                  df['mixed_layer_diffusive_convective_mask'])
+    df['gradient_layer_final_mask'] = np.logical_and(df['gradient_layer_salt_finger_mask'],
+                                                     df['gradient_layer_diffusive_convective_mask'])
     return df, df_ml_stats, df_gl_stats
 
 
-def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only, pressure_step, layer_height_ratio):
+def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only, pressure_step,
+                           layer_height_ratio):
     # Exclude gradient layers that are thicker than the max height, or one of the adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.nanmax(
         np.array([df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values]), 0)

@@ -62,3 +62,9 @@ df, df_ml_stats, df_gl_stats = classify_staircase(df_micro.depth, df_micro.ct,
                                                   df_micro.sa,
                                                   ml_grad=0.001, ml_density_difference=0.01, av_window=100,
                                                   interface_max_height=30, temp_flag_only=True, show_steps=True)
+df_micro = pd.read_csv(
+    '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/reimplement/micro_test0.csv')
+df, df_ml_stats, df_gl_stats = classify_staircase(df_micro.depth_1m, df_micro.temp_corr,
+                                                  df_micro.abs_salinity,
+                                                  ml_grad=0.001, ml_density_difference=0.01, av_window=100,
+                                                  interface_max_height=30, temp_flag_only=True, show_steps=True)
