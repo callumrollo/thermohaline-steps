@@ -78,13 +78,12 @@ def test_vanderboog_argo():
     vdb = pd.read_csv('vanderboog_argo_demo_data.csv')
     vdb = vdb.loc[:1000, :]
     df, mixes, grads = classify_staircase(vdb.pressure, vdb.conservative_temperature,
-                                          vdb.absolute_salinity)
-    mixes = mixes[~mixes.bad_mixed_layer]
+                                          vdb.absolute_salinity, layer_height_ratio=0.9, ml_density_difference=0.0048)
     plotter(df, mixes, grads)
     assert mixes.p_start.min() > 400
     assert mixes.p_end.max() < 950
-    assert len(mixes) >= 8
-    assert len(mixes) <= 10
+    assert len(mixes) == 9
+    assert len(grads) == 8
 
 
 def plotter(df, mixes, grads):

@@ -102,7 +102,8 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     """
 
     df, df_ml_stats, df_gl_stats = identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step)
-
+    df_ml_stats = df_ml_stats[~df_ml_stats.bad_mixed_layer]
+    df_gl_stats = df_gl_stats[~df_gl_stats.bad_grad_layer]
     if show_steps:
         ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')
         offset += offset_step
