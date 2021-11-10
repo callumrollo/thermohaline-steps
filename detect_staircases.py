@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from reimplement.staircase_functions import prep_data, identify_mixed_layers, mixed_layer_max_variability, \
+from staircase_functions import prep_data, identify_mixed_layers, mixed_layer_max_variability, \
     mixed_layer_stats, gradient_layer_stats, identify_staircase_sequence, filter_gradient_layers, \
     classify_salt_finger_diffusive_convective
 
@@ -51,7 +51,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     df, df_ml = identify_mixed_layers(df, df_smooth, df_diff, ml_grad, temp_flag_only)
 
     if show_steps:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(10,10))
         offset_step = 0.5
         offset = 0
 
@@ -100,17 +100,23 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     Step 5 Identify sequences of steps. A step is defined as a mixed layer bounded by two interfaces of matching double
     diffusive regime. This excludes most thermohaline intrusions
     """
-
     df, df_ml_stats, df_gl_stats = identify_staircase_sequence(df, df_ml_stats, df_gl_stats, pressure_step)
+
+    xmin = df_ml_stats.ct.min()
+    xmax = df_ml_stats.ct.max()
+    xdiff = xmax-xmin
+    ymin = df_ml_stats.p.min()
+    ymax = df_ml_stats.p.max()
+    ydiff = ymax-ymin
+
     df_ml_stats = df_ml_stats[~df_ml_stats.bad_mixed_layer]
     df_gl_stats = df_gl_stats[~df_gl_stats.bad_grad_layer]
     if show_steps:
         ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')
         offset += offset_step
         ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
-        ax.set(xlabel='Offset conservative temperature (C)', ylabel='Pressure (dbar)',
-               #    ylim=(100, 1000), xlim=(12.5, 18))
-               ylim=(250, 800), xlim=(13, 18))
+        ax.set(xlabel='Offset conservative temperature (C)', ylabel='z co-ordinate',
+               xlim=(xmin-0.05*xdiff, xmax+offset+0.05*xdiff), ylim=(ymin-0.05*ydiff, ymax+0.05*ydiff))
         ax.invert_yaxis()
         plt.show()
 
