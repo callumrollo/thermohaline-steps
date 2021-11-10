@@ -162,7 +162,7 @@ if __name__ == '__main__':
         ct_in[center - span:center + span] = np.mean(ct_orig[center - span:center + span])
         sa_in[center - span:center + span] = np.mean(sa_orig[center - span:center + span])
     df_in = pd.read_csv(
-        '/media/callum/storage/Documents/Eureka/processing/staircase_experiment/vanderboog_argo_demo_data.csv')
+        'data/vanderboog_argo_demo_data.csv')
     df_out, mixes, grads = classify_staircase(df_in.pressure, df_in.conservative_temperature, df_in.absolute_salinity,
                                               temp_flag_only=True, show_steps=True)
     # df, mixes, grads = classify_staircase(p_in, ct_in, sa_in)
