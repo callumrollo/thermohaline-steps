@@ -115,7 +115,7 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
         ax = progress_plotter(ax, df.p, df.ct + offset, df.gradient_layer_final_mask, grad=True, label='Step 5')
         offset += offset_step
         ax = progress_plotter(ax, df.p, df.ct + offset, df.mixed_layer_final_mask, label='Step 5')
-        ax.set(xlabel='Offset conservative temperature (C)', ylabel='z co-ordinate',
+        ax.set(xlabel='Offset conservative temperature (C)', ylabel='pressure (dbar)',
                xlim=(xmin-0.05*xdiff, xmax+offset+0.05*xdiff), ylim=(ymin-0.05*ydiff, ymax+0.05*ydiff))
         ax.invert_yaxis()
         plt.show()
