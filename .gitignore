@@ -140,5 +140,4 @@ cython_debug/
 # Custom ignores
 *.csv
 figures/
-*.ipynb
 
