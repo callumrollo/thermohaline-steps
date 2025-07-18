@@ -123,6 +123,72 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     return df, df_ml_stats, df_gl_stats
 
 
+def identify_staircases_from_layers(df, df_mixed_layers, df_gradient_layers, max_allowable_gap=1, show_plot=False):
+    """
+
+    :param df: dataframe of profile data  returned by `classify_staircase`
+    :param df_mixed_layers: dataframe of mixed layers returned by `classify_staircase`
+    :param df_gradient_layers: dataframe of gradient layers returned by `classify_staircase`
+    :param max_allowable_gap: maximum allowable between adjacent layers in the same staircase. Setting a larger value
+    will group together staircases that are nearby but not directly adjacent. Must be >= the spacing of the input data
+    (default 1 dbar)
+    :return: staircase_layer_stats: a list of dataframes, each of which has the stats of each mixed layer and gradient layer
+             staiecase_ct: the data from the original dataframe over the extents of each individual staircase
+    """
+
+    df_mixed_layers["mixed_layer"] = True
+    df_mixed_layers["gradient_layer"] = False
+    df_gradient_layers["mixed_layer"] = False
+    df_gradient_layers["gradient_layer"] = True
+    grads_and_mixes = pd.concat((df_mixed_layers, df_gradient_layers))
+    grads_and_mixes = grads_and_mixes.sort_values('p_start')
+    grads_and_mixes.index = np.arange(len(grads_and_mixes))
+    staircase_layer_stats = []
+    i_start = 0
+
+    for i, row in grads_and_mixes.iterrows():
+        if i == 0:
+            continue
+        # if the start of this gradient/mixed layer is more than one pressure step greater than
+        # the end of the preceding layer, save this staircase and start a new staircase table
+        if grads_and_mixes.loc[i, 'p_start'] > grads_and_mixes.loc[i - 1, 'p_end'] + max_allowable_gap:
+            df_staircase = grads_and_mixes[i_start:i]
+            staircase_layer_stats.append(df_staircase)
+            i_start = i
+    # add the final staircase
+    df_staircase_final = grads_and_mixes[i_start:]
+    staircase_layer_stats.append(df_staircase_final)
+    # Check no rows have been dropped
+    total_rows = sum(len(df) for df in staircase_layer_stats)
+    assert total_rows == len(grads_and_mixes)
+
+    # Extract original data from these staircases
+    staircases_ct = []
+    for staircase in staircase_layer_stats:
+        staircase_ct = df[np.logical_and(df.p >= staircase.p_start.min(), df.p <= staircase.p_end.max())]
+        staircases_ct.append(staircase_ct)
+
+    if show_plot:
+        for i, df in enumerate(staircases_ct):
+            fig, ax = plt.subplots(1, 2, figsize=(10, 6), sharey='row')
+            ax[0].plot(df.ct, df.p, color='gray', alpha=0.2)
+            ax[0].plot(np.ma.array(df.ct, mask=df['mixed_layer_mask']),
+                       np.ma.array(df.p, mask=df['mixed_layer_mask']), color='C0', label='mixed layer')
+            ax[0].plot(np.ma.array(df.ct, mask=df['grad_layer_step2_mask']),
+                       np.ma.array(df.p, mask=df['grad_layer_step2_mask']), color='C1', label='gradient layer')
+
+            ax[1].plot(df.sa, df.p, color='gray', alpha=0.2)
+            ax[1].plot(np.ma.array(df.sa, mask=df['mixed_layer_mask']),
+                       np.ma.array(df.p, mask=df['mixed_layer_mask']), color='C0')
+            ax[1].plot(np.ma.array(df.sa, mask=df['grad_layer_step2_mask']),
+                       np.ma.array(df.p, mask=df['grad_layer_step2_mask']), color='C1')
+            ax[0].legend()
+            ax[0].set(xlabel='conservative temperature (c)', title=f'staircase {i + 1}')
+            ax[1].set(xlabel='absolute salinity (g/kg)')
+            ax[0].invert_yaxis()
+    return staircase_layer_stats, staircases_ct
+
+
 def progress_plotter(ax, p, ct, mask, label='', grad=False):
     if grad:
         line_color = 'C1'
