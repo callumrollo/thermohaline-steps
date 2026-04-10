@@ -58,7 +58,6 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     # If 1 mixed layer or less, bail out
     if len(df_ml) < 2:
         return df, None, None
-
     df_ml = mixed_layer_max_variability(df_ml, ml_density_difference, temp_flag_only)
     df, df_ml_stats = mixed_layer_stats(df, df_ml, pressure_step)
 
@@ -80,7 +79,6 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     """
     Step 3 Exclude interfaces that are relatively thick, or do not have step shape
     """
-
     df, df_gl_stats = filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, temp_flag_only,
                                              pressure_step, layer_height_ratio)
 

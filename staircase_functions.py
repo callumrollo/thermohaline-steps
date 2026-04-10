@@ -29,7 +29,10 @@ def add_layer_stats_row(stats_df, df_layer):
               'sigma1_range': df_max.sigma1 - df_min.sigma1,
               'layer_height': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
               'density_ratio': df_mean.density_ratio}
-    stats_df = pd.concat([stats_df, pd.DataFrame(ml_row, index=[len(stats_df)])])
+    try:
+        stats_df = pd.concat([stats_df, pd.DataFrame(ml_row, index=[len(stats_df)])])
+    except AttributeError:
+        stats_df = stats_df.append(ml_row, ignore_index=True)
     return stats_df
 
 
@@ -136,7 +139,6 @@ def mixed_layer_stats(df, df_ml, pressure_step):
     if continuous_ml:
         df_mixed_layer = df_ml.loc[start_index:prev_index]
         df_ml_stats = add_layer_stats_row(df_ml_stats, df_mixed_layer)
-
     df['mixed_layer_step1_mask'] = True
     for i, row in df_ml_stats.iterrows():
         df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'mixed_layer_step1_mask'] = False
@@ -151,7 +153,7 @@ def gradient_layer_stats(df, df_ml_stats, temp_flag_only):
     prev_row = df_ml_stats.iloc[0]
     # Loop through mixed layer stats. All layers between mixed layers initially classified as gradient layers
     for i, row in df_ml_stats.iloc[1:].iterrows():
-        gl_rows = df[(df.p >= prev_row.p_end) & (df.p <= row.p_start)]
+        gl_rows = df[(df.p > prev_row.p_end) & (df.p < row.p_start)]
         df_gl_stats = add_layer_stats_row(df_gl_stats, gl_rows)
         prev_row = row
 
@@ -236,6 +238,7 @@ def filter_gradient_layers(df, df_ml_stats, df_gl_stats, interface_max_height, t
     # Exclude gradient layers that are thicker than the max height, or one of the adjacent mixed layers
     df_gl_stats['adj_ml_height'] = np.nanmax(
         np.array([df_ml_stats.iloc[1:].layer_height.values, df_ml_stats.iloc[:-1].layer_height.values]), 0)
+    df_gl_stats.loc[df_gl_stats.layer_height == 0., 'layer_height'] = 0.0001
     df_gl_stats['height_ratio'] = df_gl_stats.adj_ml_height / df_gl_stats.layer_height
     df_gl_stats.loc[df_gl_stats.height_ratio < layer_height_ratio, 'bad_grad_layer'] = True
     df_gl_stats.loc[df_gl_stats.layer_height > interface_max_height, 'bad_grad_layer'] = True

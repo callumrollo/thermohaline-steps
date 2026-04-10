@@ -102,5 +102,3 @@ def test_vanderboog_argo():
     assert len(grads) == 8
     staircases = identify_staircases_from_layers(df, mixes, grads)
     assert len(staircases) == 2
-
-
