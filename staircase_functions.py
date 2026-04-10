@@ -29,7 +29,7 @@ def add_layer_stats_row(stats_df, df_layer):
               'sigma1_range': df_max.sigma1 - df_min.sigma1,
               'layer_height': df_max.p - df_min.p, 'turner_ang': df_mean.turner_ang,
               'density_ratio': df_mean.density_ratio}
-    stats_df = stats_df.append(ml_row, ignore_index=True)
+    stats_df = pd.concat([stats_df, pd.DataFrame(ml_row, index=[len(stats_df)])])
     return stats_df
 
 
@@ -151,7 +151,7 @@ def gradient_layer_stats(df, df_ml_stats, temp_flag_only):
     prev_row = df_ml_stats.iloc[0]
     # Loop through mixed layer stats. All layers between mixed layers initially classified as gradient layers
     for i, row in df_ml_stats.iloc[1:].iterrows():
-        gl_rows = df[(df.p > prev_row.p_end) & (df.p < row.p_start)]
+        gl_rows = df[(df.p >= prev_row.p_end) & (df.p <= row.p_start)]
         df_gl_stats = add_layer_stats_row(df_gl_stats, gl_rows)
         prev_row = row
 
