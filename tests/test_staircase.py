@@ -5,14 +5,12 @@ input data at varying pressure steps
 reject/fix non uniform data
 data with gaps
 """
-import sys
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-folder = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, folder)
-from detect_staircases import classify_staircase, identify_staircases_from_layers
+from pathlib import Path
+repo_dir = Path(__file__).parent.parent.absolute()
+from thermohaline.detect_staircases import classify_staircase, identify_staircases_from_layers
 
 
 p = np.arange(1000)
@@ -91,7 +89,7 @@ def test_spacing_close():
 
 def test_vanderboog_argo():
     # checking against the Argo data from vanderBoog paper
-    vdb = pd.read_csv(f'{folder}/data/vanderboog_argo_demo_data.csv')
+    vdb = pd.read_csv(repo_dir / 'data' / 'vanderboog_argo_demo_data.csv')
     vdb = vdb.loc[:1000, :]
     df, mixes, grads = classify_staircase(vdb.pressure, vdb.conservative_temperature,
                                           vdb.absolute_salinity, layer_height_ratio=0.9, ml_density_difference=0.0048)
