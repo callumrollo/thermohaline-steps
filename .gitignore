@@ -142,3 +142,4 @@ cython_debug/
 figures/
 
 .idea
+*_version.py

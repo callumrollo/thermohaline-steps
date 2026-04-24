@@ -6,6 +6,16 @@ Original paper https://doi.org/10.5194/essd-13-43-2021
 
 Original codebase https://doi.org/10.5281/zenodo.4286170
 
+### Install
+
+For an editable local install
+
+```bash
+pip install -e .
+```
+
+An example notebook demonstrating functionality can be found in the `examples` directory
+
 ### Aims
 - [x] Replicate classification system of van der Boog et al.
 - [x] Generalise to accept generic evenly sampled CTD profiles as input
