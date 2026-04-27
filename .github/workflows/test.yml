@@ -39,6 +39,7 @@ jobs:
         create-args: >-
           python=${{ matrix.python-version }}
           --file requirements.txt
+          --file requirements-dev.txt
           --channel conda-forge
 
     - name: Install library
