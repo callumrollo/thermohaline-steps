@@ -2,4 +2,5 @@ gsw
 matplotlib
 numpy
 pandas
+xarray
 scipy
