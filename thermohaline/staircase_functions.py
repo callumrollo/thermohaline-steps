@@ -1,7 +1,9 @@
 import gsw as gsw
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.signal import argrelextrema
+import xarray as xr
 
 
 def center_diff_df(df, pressure_step):
@@ -280,3 +282,65 @@ def classify_salt_finger_diffusive_convective(df, df_ml_stats, df_gl_stats):
         if row.salt_finger or row.diffusive_convection:
             df.loc[(df.p >= row.p_start) & (df.p <= row.p_end), 'grad_layer_step4_mask'] = False
     return df, df_gl_stats
+
+
+def interp_ds(ds_in, plot=False, pressure_step=1):
+    """
+    Interpolate irregulary sampled dataset
+    :param ds_in: xarray.DataSet containing the variables PRES
+    :param plot: plot before and after interpolation for comparison. Default = False
+    :param pressure_step: pressure step in dbar to interpolate onto. Default = 1
+    :return: ds_in interpolated over the range of PRES at steps of pressure_step
+    """
+    assert 'PRES' in ds_in.variables, 'Missing variable PRES to interpolate'
+    ds_new = xr.Dataset()
+    ds_new.attrs = ds_in.attrs
+    for variable in ds_in.variables:
+        if ds_in[variable].dims == ds_in['PRES'].dims:
+            ds_new[variable] = ('PRES', ds_in[variable].values, ds_in[variable].attrs)
+        elif not ds_in[variable].dims:
+            ds_new[variable] = ((), ds_in[variable].values, ds_in[variable].attrs)
+
+    ds_new = ds_new.set_coords(("PRES"))
+    ds_new = ds_new.drop_duplicates(dim='PRES')
+    ds_new = ds_new.dropna(dim='PRES')
+    ds_new = ds_new.sortby('PRES')
+    new_pressure = np.arange(np.nanmin(ds_in.PRES), np.nanmax(ds_in.PRES) + pressure_step, pressure_step)
+    ds_interp = ds_new.interp(PRES=new_pressure)
+    if plot:
+        fig, ax = plt.subplots()
+        ax.plot(ds_in.TEMP, ds_in.PRES, lw=3, label='original')
+        ax.plot(ds_new.TEMP, ds_new.PRES, label='interpolated')
+        ax.legend()
+        ax.invert_yaxis()
+    return ds_interp
+
+
+def check_valid_pressure(ds):
+    """
+    Check that a dataset has monotonically increasing valid PRES values for `classify_staircase`
+    :param ds: xarray.DataSet with PRES variable
+    :return: 
+    """
+    assert 'PRES' in ds.variables, "PRES not found in dataset"
+    pres = ds.PRES.values
+    pres_diff = np.diff(np.round(pres, 2))
+    assert (pres_diff > 0).all(), "PRES not monotonically increasing"
+    assert len(np.unique(pres)) == len(pres), "Duplicate values in PRES"
+    assert len(np.unique(pres_diff)) ==1, "PRES not evenly spaced"
+
+
+def calc_derived_variables(ds):
+    """
+    Calculate absolute salinity and conservative temperature for use with `classify_staircase`
+    :param ds: xarray.DataSet including variables 'PRES', 'TEMP', 'PSAL', 'LATITUDE', 'LONGITUDE'
+    :return: input dataset with the added variables 'CTEMP' (conservative temperature) and 'ASAL' (absolute salinity)
+    """
+    evs = {'PRES', 'TEMP', 'PSAL', 'LATITUDE', 'LONGITUDE'}
+    assert evs.issubset(set(ds.variables)), f"Missing essential variables {evs.difference(set(ds.variables))}"
+    pressure = ds.PRES.values
+    sa = gsw.conversions.SA_from_SP(ds.PSAL.values, pressure, ds.LONGITUDE.values, ds.LATITUDE.values)
+    ct = gsw.conversions.CT_from_t(sa, ds.TEMP.values, pressure)
+    ds['CTEMP'] = ('PRES', ct, {'long_name': 'conservative temperature', 'units': 'degree_C', 'standard_name': 'sea_water_conservative_temperature'})
+    ds['ASAL'] = ('PRES', sa, {'long_name': 'absolute salinity', 'units': 'g kg-1', 'standard_name': 'sea_water_absolute_salinity'})
+    return ds
