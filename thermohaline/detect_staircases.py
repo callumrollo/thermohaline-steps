@@ -19,7 +19,6 @@ from thermohaline.staircase_functions import prep_data, identify_mixed_layers, m
 def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, av_window=200, interface_max_height=30,
                        layer_height_ratio=1, temp_flag_only=False, show_steps=False):
     """
-    all data should be at 1 dbar resolution (for now)
     Notes:
     - Currently dropping min and max pressure values, so can have Turner angle at all points
     - Turner angle and stability-ratio from smoothed profile
