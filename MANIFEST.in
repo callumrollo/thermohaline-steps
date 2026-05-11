@@ -13,4 +13,4 @@ prune tests
 exclude .gitignore
 exclude *.yml
 exclude thermohalinesteps/_version.py
-exclude data
+recursive-include data *.csv
