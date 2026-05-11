@@ -1,0 +1,16 @@
+include *.txt
+include README.md
+include pyproject.toml
+
+graft thermohalinesteps
+
+prune .github
+prune *.egg-info
+prune docs
+prune notebooks
+prune tests
+
+exclude .gitignore
+exclude *.yml
+exclude thermohalinesteps/_version.py
+recursive-include data *.csv

@@ -7,10 +7,10 @@ requires = [
 ]
 
 [project]
-name = "thermohaline"
+name = "thermohalinesteps"
 description = "detect thermohaline staircases"
 readme = "README.md"
-license = {file = "COPYING"}
+license = "GPL-3.0-or-later"
 maintainers = [
     {name = "Callum Rollo", email = "c.rollo@outlook.com"},
 ]
@@ -35,14 +35,14 @@ homepage = "https://github.com/callumrollo/thermohaline-steps"
 repository = "https://github.com/callumrollo/thermohaline-steps"
 
 [tool.setuptools]
-packages = ["thermohaline"]
+packages = ["thermohalinesteps"]
 include-package-data = true
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools_scm]
-write_to = "thermohaline/_version.py"
+write_to = "thermohalinesteps/_version.py"
 write_to_template = "__version__ = '{version}'"
 tag_regex = "^(?P<prefix>v)?(?P<version>[^\\+]+)(?P<suffix>.*)?$"
 
