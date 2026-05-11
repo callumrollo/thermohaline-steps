@@ -1,0 +1,62 @@
+name: Publish to PyPI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/thermohalinesteps/
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      with:
+        # Should be enough for setuptools-scm
+        fetch-depth: 100
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+      with:
+        python-version: "3.x"
+
+    - name: Get tags
+      run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade build
+
+    - name: Build sdist and binary wheel
+      run: python -m build --sdist --wheel . --outdir dist
+
+    - name: CheckFiles
+      run: |
+        ls dist
+        python -m pip install --upgrade check-manifest
+        check-manifest --verbose
+
+    - name: Test wheels
+      run: |
+        cd dist && python -m pip install *.whl
+        python -m pip install --upgrade twine
+        python -m twine check *
+
+    - name: Publish a Python distribution to PyPI
+      if: success() && github.event_name == 'release'
+      uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0

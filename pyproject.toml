@@ -10,7 +10,7 @@ requires = [
 name = "thermohaline"
 description = "detect thermohaline staircases"
 readme = "README.md"
-license = {file = "COPYING"}
+license = "GPL-3.0-or-later"
 maintainers = [
     {name = "Callum Rollo", email = "c.rollo@outlook.com"},
 ]
