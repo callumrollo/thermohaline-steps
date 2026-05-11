@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 repo_dir = Path(__file__).parent.parent.absolute()
-from thermohaline.detect_staircases import classify_staircase, identify_staircases_from_layers
+from thermohalinesteps.detect_staircases import classify_staircase, identify_staircases_from_layers
 
 
 p = np.arange(1000)
