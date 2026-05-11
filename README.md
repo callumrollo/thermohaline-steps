@@ -8,6 +8,12 @@ Original codebase https://doi.org/10.5281/zenodo.4286170
 
 ### Install
 
+To install the latest release from PyPI
+
+```bash
+pip install thremohalinesteps
+```
+
 For an editable local install
 
 ```bash
