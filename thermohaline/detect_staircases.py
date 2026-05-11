@@ -37,10 +37,11 @@ def classify_staircase(p, ct, sa, ml_grad=0.0005, ml_density_difference=0.005, a
     """
     Check input pressure is evenly sampled and monotonically increasing
     """
-    pres_diff = np.diff(np.round(p, 2))
+    pres_diff = np.diff(p)
+    median_diff = np.nanmedian(pres_diff)
     assert (pres_diff > 0).all(), "pressure not monotonically increasing"
     assert len(np.unique(p)) == len(p), "Duplicate values in pressure"
-    assert len(np.unique(pres_diff)) == 1, "pressure not evenly spaced"
+    assert not (median_diff * 1.01 > pres_diff).any() and not  (pres_diff > median_diff * 0.99).any(), "pressure not evenly spaced"
     """
     Step 0: Prepare data. Using pandas dataframes to keep neat
     """
