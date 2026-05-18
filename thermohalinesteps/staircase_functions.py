@@ -303,7 +303,7 @@ def interp_ds(ds_in, plot=False, pressure_step=1):
 
     ds_new = ds_new.set_coords(("PRES"))
     ds_new = ds_new.drop_duplicates(dim='PRES')
-    ds_new = ds_new.dropna(dim='PRES')
+    ds_new = ds_new.dropna(dim='PRES', subset=['PRES'])
     ds_new = ds_new.sortby('PRES')
     new_pressure = np.arange(np.nanmin(ds_in.PRES), np.nanmax(ds_in.PRES) + pressure_step, pressure_step)
     ds_interp = ds_new.interp(PRES=new_pressure)
